@@ -22,6 +22,8 @@ class S3Client:
 
         try:
             success = self.driver.upload(key, data, metadata)
+            if not success:
+                exception = Exception("Upload failed")
         except Exception as e:
             exception = e
         finally:
@@ -46,6 +48,8 @@ class S3Client:
 
         try:
             data = self.driver.download(key)
+            if data is None:
+                exception = Exception("Download failed")
         except Exception as e:
             exception = e
         finally:
@@ -70,6 +74,8 @@ class S3Client:
 
         try:
             success = self.driver.delete(key)
+            if not success:
+                exception = Exception("Delete failed")
         except Exception as e:
             exception = e
         finally:
@@ -118,6 +124,8 @@ class S3Client:
 
         try:
             metadata = self.driver.head_object(key)
+            if metadata is None:
+                exception = Exception("Head object failed")
         except Exception as e:
             exception = e
         finally:

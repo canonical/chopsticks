@@ -21,7 +21,7 @@ class S5cmdDriver(BaseS3Driver):
         os.environ["AWS_REGION"] = self.region
 
     def _run_command(
-        self, args: list, input_data: Optional[bytes] = None
+        self, args: list, input_data: Optional[bytes] = None, timeout: int = 10
     ) -> tuple[bool, str, str]:
         """
         Run s5cmd command
@@ -29,6 +29,7 @@ class S5cmdDriver(BaseS3Driver):
         Args:
             args: Command arguments
             input_data: Optional input data for stdin
+            timeout: Command timeout in seconds (default: 10)
 
         Returns:
             Tuple of (success, stdout, stderr)
@@ -36,15 +37,19 @@ class S5cmdDriver(BaseS3Driver):
         cmd = [self.s5cmd_path] + args
         try:
             result = subprocess.run(
-                cmd, input=input_data, capture_output=True, timeout=300
+                cmd, input=input_data, capture_output=True, timeout=timeout
             )
-            return (
-                result.returncode == 0,
-                result.stdout.decode(),
-                result.stderr.decode(),
-            )
+            success = result.returncode == 0
+            stdout = result.stdout.decode() if result.stdout else ""
+            stderr = result.stderr.decode() if result.stderr else ""
+            
+            # Check for errors in stderr even if return code is 0
+            if not success or "ERROR" in stderr or "error" in stderr:
+                return False, stdout, stderr if stderr else "Command failed"
+            
+            return success, stdout, stderr
         except subprocess.TimeoutExpired:
-            return False, "", "Command timed out"
+            return False, "", "Command timed out after {} seconds".format(timeout)
         except Exception as e:
             return False, "", str(e)
 
