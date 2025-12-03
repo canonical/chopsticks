@@ -13,7 +13,7 @@ class S3LargeObjectTest(S3Workload):
     Configuration:
         Requires scenario config file with 's3_large_objects' section.
         Uses default config (config/scenario_config_default.yaml) if no custom config provided.
-        
+
         Required fields:
         - object_size_mb: Size of objects in MB
         - max_keys_in_memory: Maximum keys to keep in memory

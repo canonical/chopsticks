@@ -2,7 +2,6 @@
 
 import yaml
 import pytest
-from pathlib import Path
 
 from chopsticks.utils.config_loader import load_config
 

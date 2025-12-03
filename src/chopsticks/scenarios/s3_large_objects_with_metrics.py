@@ -78,15 +78,9 @@ def on_locust_quit(environment, **kwargs):
         output_dir = os.environ.get("CHOPSTICKS_RUN_DIR", "/tmp/chopsticks_metrics")
         os.makedirs(output_dir, exist_ok=True)
 
-        metrics_collector.export_json(
-            f"{output_dir}/metrics.json"
-        )
-        metrics_collector.export_csv(
-            f"{output_dir}/metrics.csv"
-        )
-        metrics_collector.export_jsonl(
-            f"{output_dir}/metrics.jsonl"
-        )
+        metrics_collector.export_json(f"{output_dir}/metrics.json")
+        metrics_collector.export_csv(f"{output_dir}/metrics.csv")
+        metrics_collector.export_jsonl(f"{output_dir}/metrics.jsonl")
 
         # Get summary
         summary = metrics_collector.get_summary()

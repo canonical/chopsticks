@@ -10,10 +10,10 @@ from typing import List, Optional
 def parse_args(args: Optional[List[str]] = None) -> argparse.Namespace:
     """
     Parse command line arguments.
-    
+
     Args:
         args: Command line arguments (defaults to sys.argv)
-        
+
     Returns:
         Parsed arguments namespace
     """
@@ -32,67 +32,69 @@ Examples:
   # Run with custom scenario config
   chopsticks --workload-config config/s3_config.yaml --scenario-config my_scenario.yaml \\
     -f scenarios/s3_large_objects.py --headless --users 50 --spawn-rate 5 --duration 10m
-        """
+        """,
     )
-    
+
     # Required arguments
     parser.add_argument(
         "--workload-config",
         required=True,
         type=str,
-        help="Path to workload configuration file (e.g., s3_config.yaml). Required."
+        help="Path to workload configuration file (e.g., s3_config.yaml). Required.",
     )
-    
+
     parser.add_argument(
-        "-f", "--locustfile",
+        "-f",
+        "--locustfile",
         required=True,
         type=str,
-        help="Path to Locust scenario file. Required."
+        help="Path to Locust scenario file. Required.",
     )
-    
+
     # Optional arguments
     parser.add_argument(
         "--scenario-config",
         type=str,
         default=None,
-        help="Path to scenario configuration file. Optional, defaults to empty config."
+        help="Path to scenario configuration file. Optional, defaults to empty config.",
     )
-    
+
     # Essential Locust parameters
     parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Run in headless mode (no web UI)."
+        "--headless", action="store_true", help="Run in headless mode (no web UI)."
     )
-    
+
     parser.add_argument(
-        "-u", "--users",
+        "-u",
+        "--users",
         type=int,
-        help="Number of concurrent users. Required in headless mode."
+        help="Number of concurrent users. Required in headless mode.",
     )
-    
+
     parser.add_argument(
-        "-r", "--spawn-rate",
+        "-r",
+        "--spawn-rate",
         type=int,
-        help="User spawn rate (users per second). Required in headless mode."
+        help="User spawn rate (users per second). Required in headless mode.",
     )
-    
+
     parser.add_argument(
-        "-t", "--duration",
+        "-t",
+        "--duration",
         type=str,
-        help="Test duration, e.g., 300s, 20m, 3h, 1h30m. Optional."
+        help="Test duration, e.g., 300s, 20m, 3h, 1h30m. Optional.",
     )
-    
+
     return parser.parse_args(args)
 
 
 def validate_config_paths(args: argparse.Namespace) -> None:
     """
     Validate configuration file paths exist.
-    
+
     Args:
         args: Parsed arguments
-        
+
     Raises:
         FileNotFoundError: If required config files don't exist
     """
@@ -101,102 +103,96 @@ def validate_config_paths(args: argparse.Namespace) -> None:
         raise FileNotFoundError(
             f"Workload configuration file not found: {args.workload_config}"
         )
-    
+
     if args.scenario_config:
         scenario_config_path = Path(args.scenario_config)
         if not scenario_config_path.exists():
             raise FileNotFoundError(
                 f"Scenario configuration file not found: {args.scenario_config}"
             )
-    
+
     locustfile_path = Path(args.locustfile)
     if not locustfile_path.exists():
-        raise FileNotFoundError(
-            f"Locust scenario file not found: {args.locustfile}"
-        )
+        raise FileNotFoundError(f"Locust scenario file not found: {args.locustfile}")
 
 
 def validate_arguments(args: argparse.Namespace) -> None:
     """
     Validate argument combinations.
-    
+
     Args:
         args: Parsed arguments
-        
+
     Raises:
         ValueError: If argument combination is invalid
     """
     if args.headless:
         if args.users is None:
-            raise ValueError(
-                "--users is required in headless mode"
-            )
+            raise ValueError("--users is required in headless mode")
         if args.spawn_rate is None:
-            raise ValueError(
-                "--spawn-rate is required in headless mode"
-            )
+            raise ValueError("--spawn-rate is required in headless mode")
 
 
 def build_locust_command(args: argparse.Namespace) -> tuple[List[str], str]:
     """
     Build Locust command from parsed arguments.
-    
+
     Args:
         args: Parsed arguments
-        
+
     Returns:
         Tuple of (command list, run directory path)
     """
     import uuid
     from datetime import datetime
-    
+
     cmd = ["locust", "-f", args.locustfile]
     run_dir = ""
-    
+
     # Headless mode
     if args.headless:
         cmd.append("--headless")
         cmd.extend(["-u", str(args.users)])
         cmd.extend(["-r", str(args.spawn_rate)])
-        
+
         # Create run-specific directory with abbreviated run ID
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         run_id = str(uuid.uuid4())[:8]
         run_dir = f"/tmp/chopsticks/{timestamp}_{run_id}"
         os.makedirs(run_dir, exist_ok=True)
-        
+
         # Add HTML and CSV reports to run directory
         cmd.extend(["--html", f"{run_dir}/locust_report.html"])
         cmd.extend(["--csv", f"{run_dir}/locust"])
-        
+
         # Set environment variable for metrics collector to use same directory
         os.environ["CHOPSTICKS_RUN_DIR"] = run_dir
-    
+
     # Duration
     if args.duration:
         cmd.extend(["-t", args.duration])
-    
+
     return cmd, run_dir
 
 
 def set_environment_variables(args: argparse.Namespace) -> None:
     """
     Set environment variables for config paths.
-    
+
     Args:
         args: Parsed arguments
     """
     workload_config_path = Path(args.workload_config).resolve()
-    
+
     # Set generic config path
     os.environ["CHOPSTICKS_WORKLOAD_CONFIG"] = str(workload_config_path)
-    
+
     # Set workload-specific config path (e.g., S3_CONFIG_PATH for s3_config.yaml)
     config_name = workload_config_path.stem
     if config_name.endswith("_config"):
         workload_type = config_name.replace("_config", "").upper()
         os.environ[f"{workload_type}_CONFIG_PATH"] = str(workload_config_path)
-    
+
     # Set scenario config path (empty string if not provided)
     if args.scenario_config:
         scenario_config_path = Path(args.scenario_config).resolve()
@@ -208,39 +204,43 @@ def set_environment_variables(args: argparse.Namespace) -> None:
 def main(argv: Optional[List[str]] = None) -> int:
     """
     Main entry point for CLI.
-    
+
     Args:
         argv: Command line arguments (defaults to sys.argv[1:])
-        
+
     Returns:
         Exit code
     """
     try:
         args = parse_args(argv)
-        
+
         validate_config_paths(args)
         validate_arguments(args)
-        
+
         set_environment_variables(args)
-        
+
         locust_cmd, run_dir = build_locust_command(args)
-        
-        print(f"Starting Chopsticks...")
+
+        print("Starting Chopsticks...")
         print(f"Workload config: {args.workload_config}")
-        print(f"Scenario config: {args.scenario_config if args.scenario_config else '<empty default>'}")
+        print(
+            f"Scenario config: {args.scenario_config if args.scenario_config else '<empty default>'}"
+        )
         print(f"Scenario file: {args.locustfile}")
         if args.headless:
-            print(f"Mode: Headless ({args.users} users, spawn rate {args.spawn_rate}/s)")
+            print(
+                f"Mode: Headless ({args.users} users, spawn rate {args.spawn_rate}/s)"
+            )
             if args.duration:
                 print(f"Duration: {args.duration}")
             if run_dir:
                 print(f"Reports: {run_dir}")
         else:
-            print(f"Mode: Web UI (http://localhost:8089)")
+            print("Mode: Web UI (http://localhost:8089)")
         print()
-        
+
         os.execvp("locust", locust_cmd)
-        
+
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
@@ -250,7 +250,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
-    
+
     return 0
 
 

@@ -1,7 +1,6 @@
 """Unit tests for CLI wrapper."""
 
 import pytest
-from pathlib import Path
 from unittest.mock import patch
 
 from chopsticks.cli import (
@@ -18,10 +17,14 @@ class TestParseArgs:
 
     def test_parse_required_args(self):
         """Test parsing required arguments."""
-        args = parse_args([
-            "--workload-config", "config/s3_config.yaml",
-            "-f", "scenarios/s3_large_objects.py"
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                "config/s3_config.yaml",
+                "-f",
+                "scenarios/s3_large_objects.py",
+            ]
+        )
 
         assert args.workload_config == "config/s3_config.yaml"
         assert args.locustfile == "scenarios/s3_large_objects.py"
@@ -30,24 +33,36 @@ class TestParseArgs:
 
     def test_parse_with_scenario_config(self):
         """Test parsing with scenario config."""
-        args = parse_args([
-            "--workload-config", "s3.yaml",
-            "-f", "scenario.py",
-            "--scenario-config", "scenario.yaml"
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                "s3.yaml",
+                "-f",
+                "scenario.py",
+                "--scenario-config",
+                "scenario.yaml",
+            ]
+        )
 
         assert args.scenario_config == "scenario.yaml"
 
     def test_parse_headless_mode(self):
         """Test parsing headless mode with users and spawn rate."""
-        args = parse_args([
-            "--workload-config", "s3.yaml",
-            "-f", "scenario.py",
-            "--headless",
-            "--users", "10",
-            "--spawn-rate", "2",
-            "--duration", "5m"
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                "s3.yaml",
+                "-f",
+                "scenario.py",
+                "--headless",
+                "--users",
+                "10",
+                "--spawn-rate",
+                "2",
+                "--duration",
+                "5m",
+            ]
+        )
 
         assert args.headless is True
         assert args.users == 10
@@ -73,11 +88,16 @@ class TestValidateConfigPaths:
         scenario_config.write_text("test: scenario")
         locustfile.write_text("# test scenario")
 
-        args = parse_args([
-            "--workload-config", str(workload_config),
-            "-f", str(locustfile),
-            "--scenario-config", str(scenario_config)
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                str(workload_config),
+                "-f",
+                str(locustfile),
+                "--scenario-config",
+                str(scenario_config),
+            ]
+        )
 
         validate_config_paths(args)
 
@@ -86,12 +106,13 @@ class TestValidateConfigPaths:
         locustfile = tmp_path / "scenario.py"
         locustfile.write_text("# test")
 
-        args = parse_args([
-            "--workload-config", str(tmp_path / "missing.yaml"),
-            "-f", str(locustfile)
-        ])
+        args = parse_args(
+            ["--workload-config", str(tmp_path / "missing.yaml"), "-f", str(locustfile)]
+        )
 
-        with pytest.raises(FileNotFoundError, match="Workload configuration file not found"):
+        with pytest.raises(
+            FileNotFoundError, match="Workload configuration file not found"
+        ):
             validate_config_paths(args)
 
     def test_missing_locustfile(self, tmp_path):
@@ -99,10 +120,14 @@ class TestValidateConfigPaths:
         workload_config = tmp_path / "s3_config.yaml"
         workload_config.write_text("test: config")
 
-        args = parse_args([
-            "--workload-config", str(workload_config),
-            "-f", str(tmp_path / "missing.py")
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                str(workload_config),
+                "-f",
+                str(tmp_path / "missing.py"),
+            ]
+        )
 
         with pytest.raises(FileNotFoundError, match="Locust scenario file not found"):
             validate_config_paths(args)
@@ -113,46 +138,61 @@ class TestValidateArguments:
 
     def test_valid_headless_args(self):
         """Test valid headless arguments."""
-        args = parse_args([
-            "--workload-config", "s3.yaml",
-            "-f", "scenario.py",
-            "--headless",
-            "--users", "10",
-            "--spawn-rate", "2"
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                "s3.yaml",
+                "-f",
+                "scenario.py",
+                "--headless",
+                "--users",
+                "10",
+                "--spawn-rate",
+                "2",
+            ]
+        )
 
         validate_arguments(args)
 
     def test_headless_without_users(self):
         """Test error when headless mode lacks users."""
-        args = parse_args([
-            "--workload-config", "s3.yaml",
-            "-f", "scenario.py",
-            "--headless",
-            "--spawn-rate", "2"
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                "s3.yaml",
+                "-f",
+                "scenario.py",
+                "--headless",
+                "--spawn-rate",
+                "2",
+            ]
+        )
 
         with pytest.raises(ValueError, match="--users is required in headless mode"):
             validate_arguments(args)
 
     def test_headless_without_spawn_rate(self):
         """Test error when headless mode lacks spawn rate."""
-        args = parse_args([
-            "--workload-config", "s3.yaml",
-            "-f", "scenario.py",
-            "--headless",
-            "--users", "10"
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                "s3.yaml",
+                "-f",
+                "scenario.py",
+                "--headless",
+                "--users",
+                "10",
+            ]
+        )
 
-        with pytest.raises(ValueError, match="--spawn-rate is required in headless mode"):
+        with pytest.raises(
+            ValueError, match="--spawn-rate is required in headless mode"
+        ):
             validate_arguments(args)
 
     def test_web_ui_mode(self):
         """Test web UI mode without users/spawn rate."""
-        args = parse_args([
-            "--workload-config", "s3.yaml",
-            "-f", "scenario.py"
-        ])
+        args = parse_args(["--workload-config", "s3.yaml", "-f", "scenario.py"])
 
         validate_arguments(args)
 
@@ -162,10 +202,9 @@ class TestBuildLocustCommand:
 
     def test_web_ui_mode_command(self):
         """Test command for web UI mode."""
-        args = parse_args([
-            "--workload-config", "s3.yaml",
-            "-f", "scenarios/s3_large_objects.py"
-        ])
+        args = parse_args(
+            ["--workload-config", "s3.yaml", "-f", "scenarios/s3_large_objects.py"]
+        )
 
         cmd, run_dir = build_locust_command(args)
 
@@ -174,14 +213,21 @@ class TestBuildLocustCommand:
 
     def test_headless_mode_command(self):
         """Test command for headless mode."""
-        args = parse_args([
-            "--workload-config", "s3.yaml",
-            "-f", "scenarios/s3_large_objects.py",
-            "--headless",
-            "--users", "10",
-            "--spawn-rate", "2",
-            "--duration", "5m"
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                "s3.yaml",
+                "-f",
+                "scenarios/s3_large_objects.py",
+                "--headless",
+                "--users",
+                "10",
+                "--spawn-rate",
+                "2",
+                "--duration",
+                "5m",
+            ]
+        )
 
         cmd, run_dir = build_locust_command(args)
 
@@ -198,13 +244,19 @@ class TestBuildLocustCommand:
 
     def test_headless_without_duration(self):
         """Test headless command without duration."""
-        args = parse_args([
-            "--workload-config", "s3.yaml",
-            "-f", "scenario.py",
-            "--headless",
-            "--users", "5",
-            "--spawn-rate", "1"
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                "s3.yaml",
+                "-f",
+                "scenario.py",
+                "--headless",
+                "--users",
+                "5",
+                "--spawn-rate",
+                "1",
+            ]
+        )
 
         cmd, run_dir = build_locust_command(args)
 
@@ -228,12 +280,12 @@ class TestSetEnvironmentVariables:
         locustfile = tmp_path / "scenario.py"
         locustfile.write_text("# test")
 
-        args = parse_args([
-            "--workload-config", str(workload_config),
-            "-f", str(locustfile)
-        ])
+        args = parse_args(
+            ["--workload-config", str(workload_config), "-f", str(locustfile)]
+        )
 
         import os
+
         with patch.dict(os.environ, {}, clear=True):
             set_environment_variables(args)
 
@@ -250,13 +302,19 @@ class TestSetEnvironmentVariables:
         scenario_config.write_text("scenario: config")
         locustfile.write_text("# test")
 
-        args = parse_args([
-            "--workload-config", str(workload_config),
-            "-f", str(locustfile),
-            "--scenario-config", str(scenario_config)
-        ])
+        args = parse_args(
+            [
+                "--workload-config",
+                str(workload_config),
+                "-f",
+                str(locustfile),
+                "--scenario-config",
+                str(scenario_config),
+            ]
+        )
 
         import os
+
         with patch.dict(os.environ, {}, clear=True):
             set_environment_variables(args)
 
@@ -271,12 +329,12 @@ class TestSetEnvironmentVariables:
         locustfile = tmp_path / "scenario.py"
         locustfile.write_text("# test")
 
-        args = parse_args([
-            "--workload-config", str(workload_config),
-            "-f", str(locustfile)
-        ])
+        args = parse_args(
+            ["--workload-config", str(workload_config), "-f", str(locustfile)]
+        )
 
         import os
+
         with patch.dict(os.environ, {}, clear=True):
             set_environment_variables(args)
 
