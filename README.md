@@ -36,8 +36,15 @@ chopsticks/
 # Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
+# Clone the repository
+git clone https://github.com/canonical/chopsticks.git
+cd chopsticks
+
 # Create virtual environment and install dependencies
 uv sync
+
+# Install chopsticks CLI
+uv pip install -e .
 ```
 
 ### Download s5cmd (S3 driver)
@@ -48,7 +55,7 @@ uv sync
 
 ### Configure S3 Endpoint
 
-Edit `config/s3_config.yaml`:
+Create or edit `config/s3_config.yaml`:
 
 ```yaml
 endpoint: https://s3.example.com
@@ -72,6 +79,10 @@ All scenarios run for 10 minutes by default in CI/CD testing to ensure comprehen
    - **Test Duration**: 10 minutes
    - **CI Users**: 3 users, spawn rate 1/sec
    ```bash
+   # Using CLI (Recommended)
+   chopsticks run -c config/s3_config.yaml -s large_objects -u 10 -r 2 -d 600 --headless
+   
+   # Using Locust directly
    uv run locust -f src/chopsticks/scenarios/s3_large_objects_with_metrics.py --headless -u 10 -r 2 -t 10m
    ```
 
@@ -82,6 +93,10 @@ All scenarios run for 10 minutes by default in CI/CD testing to ensure comprehen
    - **Test Duration**: 10 minutes
    - **CI Users**: 20 users, spawn rate 5/sec
    ```bash
+   # Using CLI (Recommended)
+   chopsticks run -c config/s3_config.yaml -s small_objects -u 20 -r 5 -d 600 --headless
+   
+   # Using Locust directly
    uv run locust -f src/chopsticks/scenarios/s3/small_objects.py --headless -u 20 -r 5 -t 10m
    ```
 
@@ -93,6 +108,10 @@ All scenarios run for 10 minutes by default in CI/CD testing to ensure comprehen
    - **Test Duration**: 10 minutes
    - **CI Users**: 15 users, spawn rate 3/sec
    ```bash
+   # Using CLI (Recommended)
+   chopsticks run -c config/s3_config.yaml -s mixed_objects -u 15 -r 3 -d 600 --headless
+   
+   # Using Locust directly
    uv run locust -f src/chopsticks/scenarios/s3/mixed_workload.py --headless -u 15 -r 3 -t 10m
    ```
 
@@ -104,6 +123,10 @@ All scenarios run for 10 minutes by default in CI/CD testing to ensure comprehen
    - **Test Duration**: 10 minutes
    - **CI Users**: 50 users, spawn rate 10/sec
    ```bash
+   # Using CLI (Recommended)
+   chopsticks run -c config/s3_config.yaml -s high_concurrency -u 50 -r 10 -d 600 --headless
+   
+   # Using Locust directly
    uv run locust -f src/chopsticks/scenarios/s3/concurrent_access.py --headless -u 50 -r 10 -t 10m
    ```
 
@@ -130,6 +153,29 @@ See [SCENARIO_PROPOSALS.md](SCENARIO_PROPOSALS.md) for additional proposed scena
 - Directory simulation and more
 
 ### Run a Test
+
+#### Using Chopsticks CLI (Recommended)
+
+```bash
+# Run a scenario with the CLI
+chopsticks run -c config/s3_config.yaml -s large_objects -u 10 -r 2 -d 600 --headless
+
+# Available scenarios:
+# - large_objects      : Large object upload/download (10MB+)
+# - small_objects      : Small object operations (1KB-100KB)
+# - mixed_objects      : Mixed workload with varied sizes
+# - high_concurrency   : Concurrent access patterns
+# - metadata_intensive : Metadata-heavy operations
+# - versioning_workload: Object versioning tests
+
+# Run with web UI (omit --headless)
+chopsticks run -c config/s3_config.yaml -s mixed_objects -u 15 -r 3 -d 600
+
+# Custom test duration (10 minutes)
+chopsticks run -c config/s3_config.yaml -s small_objects -u 20 -r 5 -d 600 --headless
+```
+
+#### Using Locust Directly
 
 ```bash
 # Run with web UI (default: http://localhost:8089)
@@ -241,18 +287,43 @@ class MyCustomScenario(S3Workload):
             self.client.download(key)
 ```
 
-## Available Scenarios
+## CLI Reference
 
-### S3 Large Objects
+### chopsticks run
 
-Tests upload and download of large objects (configurable size, default 100MB).
+Run a stress test scenario.
 
 ```bash
-# Default 100MB objects
-uv run locust -f src/chopsticks/scenarios/s3_large_objects.py
+chopsticks run [OPTIONS]
+```
 
-# Custom object size (50MB)
-LARGE_OBJECT_SIZE=50 uv run locust -f src/chopsticks/scenarios/s3_large_objects.py
+**Options:**
+- `-c, --config PATH` - Path to configuration file (required)
+- `-s, --scenario NAME` - Scenario to run (required)
+- `-u, --users NUM` - Number of users to spawn (default: 10)
+- `-r, --spawn-rate NUM` - Users to spawn per second (default: 1)
+- `-d, --duration SEC` - Duration of test in seconds (default: 300)
+- `--headless` - Run in headless mode without web UI
+
+**Available Scenarios:**
+- `large_objects` - Large object upload/download (10MB+)
+- `small_objects` - Small object operations (1KB-100KB)
+- `mixed_objects` - Mixed workload with varied sizes
+- `high_concurrency` - Concurrent access patterns
+- `metadata_intensive` - Metadata-heavy operations
+- `versioning_workload` - Object versioning tests
+
+**Examples:**
+
+```bash
+# Run large objects test for 10 minutes
+chopsticks run -c config/s3_config.yaml -s large_objects -u 10 -r 2 -d 600 --headless
+
+# Run mixed workload with web UI
+chopsticks run -c config/s3_config.yaml -s mixed_objects -u 15 -r 3 -d 600
+
+# High concurrency test
+chopsticks run -c config/s3_config.yaml -s high_concurrency -u 50 -r 10 -d 600 --headless
 ```
 
 ## Adding New Drivers
