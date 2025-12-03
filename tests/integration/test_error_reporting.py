@@ -32,12 +32,13 @@ def test_locust_reports_failures_with_bad_config():
         config_path = f.name
 
     try:
-        # Run locust in headless mode for a short time
-        env = os.environ.copy()
-        env["S3_CONFIG_PATH"] = config_path
-
+        # Run chopsticks CLI in headless mode for a short time
         cmd = [
-            "locust",
+            "uv",
+            "run",
+            "chopsticks",
+            "--workload-config",
+            config_path,
             "-f",
             "src/chopsticks/scenarios/s3_large_objects.py",
             "--headless",
@@ -45,19 +46,15 @@ def test_locust_reports_failures_with_bad_config():
             "2",
             "--spawn-rate",
             "2",
-            "--run-time",
+            "--duration",
             "10s",
-            "--host",
-            "http://invalid:9999",
         ]
 
         result = subprocess.run(
             cmd,
-            env=env,
             capture_output=True,
             text=True,
             timeout=30,
-            cwd="/home/utkarsh.bhatt@canonical.com/projects/chopsticks",
         )
 
         output = result.stdout + result.stderr
