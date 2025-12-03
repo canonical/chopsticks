@@ -1,0 +1,42 @@
+---
+# Chopsticks Configuration: S3 Small Objects Stress Test
+# High-frequency small object operations to test metadata-heavy workloads
+
+workload:
+  type: s3
+  scenario: s3_small_objects_with_metrics
+  
+  # S3 Configuration
+  s3:
+    endpoint: "http://localhost:9000"
+    region: "default"
+    access_key: "your-access-key"
+    secret_key: "your-secret-key"
+    bucket: "test-bucket"
+  
+  # Client driver
+  driver: s5cmd
+
+# Test scenario parameters
+scenario:
+  object_size_min_kb: 1     # Minimum object size in KB
+  object_size_max_kb: 100   # Maximum object size in KB
+  
+  # Operation distribution (via task weights)
+  # 70% upload, 20% download, 10% delete
+
+# Load profile
+load:
+  users: 20                  # Higher concurrency for small objects
+  spawn_rate: 5              # Users per second
+  duration: 600              # 10 minutes
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 8090
+  aggregation_window: 10     # seconds
+  export_formats:
+    - csv
+    - json
+    - prometheus
