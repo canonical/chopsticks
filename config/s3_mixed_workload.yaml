@@ -1,0 +1,54 @@
+---
+# Chopsticks Configuration: S3 Mixed Workload Stress Test
+# Realistic mix of object sizes and operations simulating production environments
+
+workload:
+  type: s3
+  scenario: s3_mixed_workload_with_metrics
+  
+  # S3 Configuration
+  s3:
+    endpoint: "http://localhost:9000"
+    region: "default"
+    access_key: "your-access-key"
+    secret_key: "your-secret-key"
+    bucket: "test-bucket"
+  
+  # Client driver
+  driver: s5cmd
+
+# Test scenario parameters
+scenario:
+  # Object size distribution (weighted random selection)
+  size_distribution:
+    small:
+      min_kb: 1
+      max_kb: 100
+      weight: 60        # 60% of objects
+    medium:
+      min_kb: 100
+      max_kb: 10240     # 10MB
+      weight: 30        # 30% of objects
+    large:
+      min_kb: 10240
+      max_kb: 102400    # 100MB
+      weight: 10        # 10% of objects
+  
+  # Operation distribution (via task weights)
+  # 50% upload, 35% download, 10% list, 5% delete
+
+# Load profile
+load:
+  users: 15                  # Moderate concurrency
+  spawn_rate: 3              # Users per second
+  duration: 600              # 10 minutes
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 8090
+  aggregation_window: 10     # seconds
+  export_formats:
+    - csv
+    - json
+    - prometheus
