@@ -1,45 +1,104 @@
-"""S3 Read Overload Stress Test - Simulates Release Day Traffic Surge"""
+"""S3 Read Overload Scenario - Simulates release day traffic with heavy read load"""
 
-import os
 import random
 from datetime import datetime
 from locust import task, between, events
 import uuid
+import yaml
 
 from chopsticks.workloads.s3.s3_workload import S3Workload
 from chopsticks.metrics import (
     MetricsCollector,
     TestConfiguration,
-    OperationMetric,
     OperationType,
     WorkloadType,
 )
 from chopsticks.metrics.http_server import MetricsHTTPServer
 
 
-# Global metrics server and collector
+# Global state
 metrics_server = None
 metrics_collector = None
 test_config = None
-test_objects = []
+scenario_config = None
+s3_config = None
+test_objects: dict[str, list[tuple[str, int]]] = {
+    "small": [],
+    "medium": [],
+    "large": [],
+}
+
+
+def load_s3_config():
+    """Load S3 workload configuration from YAML file"""
+    with open("config/s3_config.yaml", "r") as f:
+        config = yaml.safe_load(f)
+
+    required_fields = [
+        "endpoint",
+        "access_key",
+        "secret_key",
+        "bucket",
+        "region",
+        "driver",
+    ]
+    for field in required_fields:
+        if field not in config:
+            raise ValueError(f"Missing required S3 configuration field: {field}")
+
+    return config
+
+
+def load_scenario_config():
+    """Load scenario-specific configuration from YAML file"""
+    with open("config/scenarios/s3_read_overload.yaml", "r") as f:
+        config = yaml.safe_load(f)
+
+    required_fields = [
+        "num_small_objects",
+        "num_medium_objects",
+        "num_large_objects",
+        "small_object_size_kb",
+        "medium_object_size_kb",
+        "large_object_size_mb",
+        "read_weight_small",
+        "read_weight_medium",
+        "read_weight_large",
+    ]
+
+    for field in required_fields:
+        if field not in config:
+            raise ValueError(f"Missing required scenario configuration field: {field}")
+
+    return config
 
 
 @events.init.add_listener
 def on_locust_init(environment, **kwargs):
     """Initialize metrics collection when Locust starts"""
-    global metrics_server, metrics_collector, test_config
+    global metrics_server, metrics_collector, test_config, scenario_config, s3_config
+
+    # Load configurations
+    s3_config = load_s3_config()
+    scenario_config = load_scenario_config()
 
     # Create test configuration
     test_config = TestConfiguration(
         test_run_id=str(uuid.uuid4()),
-        test_name="S3 Read Overload - Release Day Simulation",
+        test_name="S3 Read Overload",
         start_time=datetime.utcnow(),
         scenario="s3_read_overload",
         workload_type=WorkloadType.S3,
         test_config={
-            "min_object_size_kb": int(os.getenv("MIN_OBJECT_SIZE_KB", "1")),
-            "max_object_size_mb": int(os.getenv("MAX_OBJECT_SIZE_MB", "25")),
-            "num_objects": int(os.getenv("NUM_OBJECTS", "100")),
+            "num_small_objects": scenario_config["num_small_objects"],
+            "num_medium_objects": scenario_config["num_medium_objects"],
+            "num_large_objects": scenario_config["num_large_objects"],
+            "small_object_size_kb": scenario_config["small_object_size_kb"],
+            "medium_object_size_kb": scenario_config["medium_object_size_kb"],
+            "large_object_size_mb": scenario_config["large_object_size_mb"],
+            "read_weight_small": scenario_config["read_weight_small"],
+            "read_weight_medium": scenario_config["read_weight_medium"],
+            "read_weight_large": scenario_config["read_weight_large"],
             "users": environment.parsed_options.num_users
             if hasattr(environment, "parsed_options")
             else 1,
@@ -53,356 +112,257 @@ def on_locust_init(environment, **kwargs):
         aggregation_window_seconds=10,
     )
 
-    # Start metrics HTTP server
-    metrics_port = int(os.getenv("METRICS_PORT", "9090"))
-    metrics_server = MetricsHTTPServer(
-        collector=metrics_collector, port=metrics_port, host="0.0.0.0"
-    )
+    # Start HTTP metrics server
+    metrics_server = MetricsHTTPServer(metrics_collector, port=9090)
     metrics_server.start()
-    print(f"Metrics server started on http://0.0.0.0:{metrics_port}/metrics")
+
+    print(f"\n{'=' * 80}")
+    print("Read Overload Test Configuration:")
+    print(f"  Test Run ID: {test_config.test_run_id}")
+    print(
+        f"  Small Objects: {scenario_config['num_small_objects']} x {scenario_config['small_object_size_kb']}KB"
+    )
+    print(
+        f"  Medium Objects: {scenario_config['num_medium_objects']} x {scenario_config['medium_object_size_kb']}KB"
+    )
+    print(
+        f"  Large Objects: {scenario_config['num_large_objects']} x {scenario_config['large_object_size_mb']}MB"
+    )
+    print(
+        f"  Read Weights: Small={scenario_config['read_weight_small']}%, Medium={scenario_config['read_weight_medium']}%, Large={scenario_config['read_weight_large']}%"
+    )
+    print("  Metrics Server: http://localhost:9090/metrics")
+    print(f"{'=' * 80}\n")
 
 
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     """Setup phase: Upload objects of various sizes before test starts"""
-    global test_objects, metrics_collector
+    global test_objects, metrics_collector, s3_config, scenario_config
 
-    print("=" * 80)
+    print(f"\n{'=' * 80}")
     print("SETUP PHASE: Uploading test objects...")
-    print("=" * 80)
+    print(f"{'=' * 80}\n")
 
-    min_size_kb = int(os.getenv("MIN_OBJECT_SIZE_KB", "1"))
-    max_size_mb = int(os.getenv("MAX_OBJECT_SIZE_MB", "25"))
-    num_objects = int(os.getenv("NUM_OBJECTS", "100"))
-    bucket = os.getenv("S3_BUCKET", "chopsticks-test")
-
-    # Create a temporary S3Workload instance for setup
-    setup_workload = S3Workload(
-        endpoint=os.getenv("S3_ENDPOINT", "http://localhost:9000"),
-        access_key=os.getenv("S3_ACCESS_KEY", "minioadmin"),
-        secret_key=os.getenv("S3_SECRET_KEY", "minioadmin"),
-        bucket=bucket,
-        region=os.getenv("S3_REGION", "us-east-1"),
-        client_type=os.getenv("S3_CLIENT_TYPE", "s5cmd"),
+    # Create S3Workload instance for setup
+    workload = S3Workload(
+        endpoint=s3_config["endpoint"],
+        access_key=s3_config["access_key"],
+        secret_key=s3_config["secret_key"],
+        bucket=s3_config["bucket"],
+        region=s3_config["region"],
+        client_type=s3_config["driver"],
     )
 
-    # Define object size distribution
-    # 40% small (1KB - 100KB)
-    # 30% medium (100KB - 1MB)
-    # 20% large (1MB - 10MB)
-    # 10% very large (10MB - 25MB)
-    size_ranges = [
-        (1, 100, 0.4),  # KB range, probability
-        (100, 1024, 0.3),  # KB range
-        (1024, 10240, 0.2),  # KB range
-        (10240, max_size_mb * 1024, 0.1),  # KB range
-    ]
+    # Upload small objects
+    print(
+        f"Uploading {scenario_config['num_small_objects']} small objects ({scenario_config['small_object_size_kb']}KB each)..."
+    )
+    size_bytes = scenario_config["small_object_size_kb"] * 1024
+    for i in range(scenario_config["num_small_objects"]):
+        key = f"read-overload/small/{uuid.uuid4()}.bin"
+        data = b"x" * size_bytes
 
-    uploaded_count = 0
-    failed_count = 0
-
-    for i in range(num_objects):
-        # Select size range based on probability
-        rand = random.random()
-        cumulative = 0
-        selected_range = size_ranges[0]
-
-        for size_range in size_ranges:
-            cumulative += size_range[2]
-            if rand <= cumulative:
-                selected_range = size_range
-                break
-
-        # Generate random size within selected range
-        size_kb = random.randint(
-            max(min_size_kb, int(selected_range[0])), int(selected_range[1])
-        )
-        size_bytes = size_kb * 1024
-
-        # Generate unique object key
-        key = f"read-overload-test-{uuid.uuid4()}-{size_kb}kb"
-
-        # Generate random data
-        data = os.urandom(size_bytes)
-
-        # Upload object
         start_time = datetime.utcnow()
-        success = setup_workload.put_object(key, data)
+        success = workload.put_object(key, data)
         end_time = datetime.utcnow()
 
         if success:
-            test_objects.append({"key": key, "size_bytes": size_bytes})
-            uploaded_count += 1
-
-            # Record setup metrics
-            if metrics_collector:
-                duration_ms = (end_time - start_time).total_seconds() * 1000
-                throughput_mbps = (
-                    (size_bytes / 1024 / 1024) / (duration_ms / 1000)
-                    if duration_ms > 0
-                    else 0
-                )
-
-                metric = OperationMetric(
-                    operation_id=str(uuid.uuid4()),
-                    timestamp_start=start_time,
-                    timestamp_end=end_time,
-                    operation_type=OperationType.UPLOAD,
-                    workload_type=WorkloadType.S3,
-                    object_key=key,
-                    object_size_bytes=size_bytes,
-                    duration_ms=duration_ms,
-                    throughput_mbps=throughput_mbps,
-                    success=True,
-                    driver=os.getenv("S3_CLIENT_TYPE", "s5cmd"),
-                    metadata={"phase": "setup"},
-                )
-                metrics_collector.record_operation(metric)
-
-            if (i + 1) % 10 == 0:
-                print(f"Uploaded {uploaded_count}/{num_objects} objects...")
+            test_objects["small"].append((key, size_bytes))
+            metrics_collector.record_operation(
+                OperationType.UPLOAD, key, size_bytes, start_time, end_time, True
+            )
         else:
-            failed_count += 1
-            print(f"Failed to upload object {key}")
+            metrics_collector.record_operation(
+                OperationType.UPLOAD,
+                key,
+                size_bytes,
+                start_time,
+                end_time,
+                False,
+                "Upload failed",
+            )
 
-            # Record failed setup metric
-            if metrics_collector:
-                duration_ms = (end_time - start_time).total_seconds() * 1000
+    print(f"✓ Uploaded {len(test_objects['small'])} small objects")
 
-                metric = OperationMetric(
-                    operation_id=str(uuid.uuid4()),
-                    timestamp_start=start_time,
-                    timestamp_end=end_time,
-                    operation_type=OperationType.UPLOAD,
-                    workload_type=WorkloadType.S3,
-                    object_key=key,
-                    object_size_bytes=size_bytes,
-                    duration_ms=duration_ms,
-                    throughput_mbps=0,
-                    success=False,
-                    error_message="Upload failed during setup",
-                    driver=os.getenv("S3_CLIENT_TYPE", "s5cmd"),
-                    metadata={"phase": "setup"},
-                )
-                metrics_collector.record_operation(metric)
-
-    print("=" * 80)
-    print(f"SETUP COMPLETE: {uploaded_count} objects uploaded, {failed_count} failed")
-    print(f"Test objects ready: {len(test_objects)}")
-    print("=" * 80)
-
-
-@events.test_stop.add_listener
-def on_test_stop(environment, **kwargs):
-    """Cleanup phase: Remove test objects and finalize metrics"""
-    global test_objects, metrics_collector, metrics_server
-
-    print("=" * 80)
-    print("CLEANUP PHASE: Removing test objects...")
-    print("=" * 80)
-
-    bucket = os.getenv("S3_BUCKET", "chopsticks-test")
-
-    # Create a temporary S3Workload instance for cleanup
-    cleanup_workload = S3Workload(
-        endpoint=os.getenv("S3_ENDPOINT", "http://localhost:9000"),
-        access_key=os.getenv("S3_ACCESS_KEY", "minioadmin"),
-        secret_key=os.getenv("S3_SECRET_KEY", "minioadmin"),
-        bucket=bucket,
-        region=os.getenv("S3_REGION", "us-east-1"),
-        client_type=os.getenv("S3_CLIENT_TYPE", "s5cmd"),
+    # Upload medium objects
+    print(
+        f"Uploading {scenario_config['num_medium_objects']} medium objects ({scenario_config['medium_object_size_kb']}KB each)..."
     )
+    size_bytes = scenario_config["medium_object_size_kb"] * 1024
+    for i in range(scenario_config["num_medium_objects"]):
+        key = f"read-overload/medium/{uuid.uuid4()}.bin"
+        data = b"x" * size_bytes
 
-    deleted_count = 0
-    failed_count = 0
+        start_time = datetime.utcnow()
+        success = workload.put_object(key, data)
+        end_time = datetime.utcnow()
 
-    for obj in test_objects:
-        if cleanup_workload.delete_object(obj["key"]):
-            deleted_count += 1
+        if success:
+            test_objects["medium"].append((key, size_bytes))
+            metrics_collector.record_operation(
+                OperationType.UPLOAD, key, size_bytes, start_time, end_time, True
+            )
         else:
-            failed_count += 1
-            print(f"Failed to delete object {obj['key']}")
+            metrics_collector.record_operation(
+                OperationType.UPLOAD,
+                key,
+                size_bytes,
+                start_time,
+                end_time,
+                False,
+                "Upload failed",
+            )
 
-    print("=" * 80)
-    print(f"CLEANUP COMPLETE: {deleted_count} objects deleted, {failed_count} failed")
-    print("=" * 80)
+    print(f"✓ Uploaded {len(test_objects['medium'])} medium objects")
 
-    # Finalize metrics
-    if metrics_collector:
-        metrics_collector.finalize()
-        print("\nMetrics collection finalized")
+    # Upload large objects
+    print(
+        f"Uploading {scenario_config['num_large_objects']} large objects ({scenario_config['large_object_size_mb']}MB each)..."
+    )
+    size_bytes = scenario_config["large_object_size_mb"] * 1024 * 1024
+    for i in range(scenario_config["num_large_objects"]):
+        key = f"read-overload/large/{uuid.uuid4()}.bin"
+        data = b"x" * size_bytes
 
-    # Stop metrics server
+        start_time = datetime.utcnow()
+        success = workload.put_object(key, data)
+        end_time = datetime.utcnow()
+
+        if success:
+            test_objects["large"].append((key, size_bytes))
+            metrics_collector.record_operation(
+                OperationType.UPLOAD, key, size_bytes, start_time, end_time, True
+            )
+        else:
+            metrics_collector.record_operation(
+                OperationType.UPLOAD,
+                key,
+                size_bytes,
+                start_time,
+                end_time,
+                False,
+                "Upload failed",
+            )
+
+    print(f"✓ Uploaded {len(test_objects['large'])} large objects")
+
+    total_objects = (
+        len(test_objects["small"])
+        + len(test_objects["medium"])
+        + len(test_objects["large"])
+    )
+    print(f"\n{'=' * 80}")
+    print(f"SETUP COMPLETE: {total_objects} objects ready for read overload test")
+    print(f"{'=' * 80}\n")
+
+
+@events.quitting.add_listener
+def on_locust_quit(environment, **kwargs):
+    """Cleanup when Locust quits"""
+    global metrics_server, metrics_collector, test_config
+
     if metrics_server:
         metrics_server.stop()
-        print("Metrics server stopped")
+
+    if metrics_collector:
+        # Export final metrics
+        summary = metrics_collector.get_summary()
+        report_path = f"read_overload_report_{test_config.test_run_id}.json"
+        metrics_collector.export_to_json(report_path)
+
+        print(f"\n{'=' * 80}")
+        print("Test Summary:")
+        print(f"  Total Operations: {summary['total_operations']}")
+        print(f"  Success Rate: {summary['success_rate']:.2f}%")
+        print(f"  Average Latency: {summary['avg_latency_ms']:.2f}ms")
+        print(f"  Total Throughput: {summary['total_throughput_mbps']:.2f} MB/s")
+        print(f"  Report saved to: {report_path}")
+        print(f"{'=' * 80}\n")
 
 
 class S3ReadOverloadUser(S3Workload):
-    """
-    S3 User simulating release day read overload.
+    """Locust user that performs read-heavy operations simulating release day traffic"""
 
-    This scenario focuses on saturating read throughput by continuously
-    downloading objects of various sizes. The read pattern is weighted
-    to simulate realistic access patterns where smaller files are accessed
-    more frequently than larger ones.
-    """
-
-    # Wait between 0.1 and 0.5 seconds between requests to generate high load
-    wait_time = between(0.1, 0.5)
+    wait_time = between(0.1, 0.5)  # Fast-paced reads
 
     def __init__(self, *args, **kwargs):
-        """Initialize S3 workload with configuration from environment"""
+        # Initialize S3Workload with configuration
+        if s3_config is None:
+            raise RuntimeError(
+                "S3 configuration not loaded. Did Locust initialization fail?"
+            )
+
         super().__init__(
-            endpoint=os.getenv("S3_ENDPOINT", "http://localhost:9000"),
-            access_key=os.getenv("S3_ACCESS_KEY", "minioadmin"),
-            secret_key=os.getenv("S3_SECRET_KEY", "minioadmin"),
-            bucket=os.getenv("S3_BUCKET", "chopsticks-test"),
-            region=os.getenv("S3_REGION", "us-east-1"),
-            client_type=os.getenv("S3_CLIENT_TYPE", "s5cmd"),
+            endpoint=s3_config["endpoint"],
+            access_key=s3_config["access_key"],
+            secret_key=s3_config["secret_key"],
+            bucket=s3_config["bucket"],
+            region=s3_config["region"],
+            client_type=s3_config["driver"],
         )
 
-    def _select_object_weighted(self):
-        """
-        Select an object with weighted probability based on size.
-        Smaller objects are accessed more frequently (80% of the time).
-        """
-        if not test_objects:
-            return None
+        # Build weighted choices for object selection
+        self.object_pool = []
+        self.object_pool.extend(
+            [("small", obj) for obj in test_objects["small"]]
+            * scenario_config["read_weight_small"]
+        )
+        self.object_pool.extend(
+            [("medium", obj) for obj in test_objects["medium"]]
+            * scenario_config["read_weight_medium"]
+        )
+        self.object_pool.extend(
+            [("large", obj) for obj in test_objects["large"]]
+            * scenario_config["read_weight_large"]
+        )
 
-        # 80% chance to select from smaller half of objects
-        if random.random() < 0.8:
-            # Sort by size and get smaller half
-            sorted_objects = sorted(test_objects, key=lambda x: x["size_bytes"])
-            smaller_half = sorted_objects[: len(sorted_objects) // 2]
-            return random.choice(smaller_half) if smaller_half else random.choice(
-                test_objects
+        if not self.object_pool:
+            raise RuntimeError(
+                "No test objects available. Setup phase may have failed."
             )
-        else:
-            # 20% chance to select any object
-            return random.choice(test_objects)
 
-    @task(100)
-    def download_object(self):
-        """Download a random object with weighted selection"""
-        global metrics_collector
+    @task
+    def read_object(self):
+        """Read a random object based on configured weights"""
+        # Select random object based on weights
+        category, (key, size_bytes) = random.choice(self.object_pool)
 
-        if not test_objects:
-            print("No test objects available for download")
-            return
-
-        # Select object with weighted probability
-        obj = self._select_object_weighted()
-        if not obj:
-            return
-
-        key = obj["key"]
-        expected_size = obj["size_bytes"]
-
-        # Download object
         start_time = datetime.utcnow()
         data = self.get_object(key)
         end_time = datetime.utcnow()
 
-        success = data is not None and len(data) == expected_size
-        error_message = None
-
-        if data is None:
-            error_message = "Download failed - no data returned"
-        elif len(data) != expected_size:
-            error_message = (
-                f"Size mismatch: expected {expected_size}, got {len(data)}"
-            )
+        success = data is not None
+        error_message = None if success else "Download failed"
 
         # Record metrics
-        if metrics_collector:
-            duration_ms = (end_time - start_time).total_seconds() * 1000
-            size = len(data) if data else 0
-            throughput_mbps = (
-                (size / 1024 / 1024) / (duration_ms / 1000) if duration_ms > 0 else 0
-            )
-
-            metric = OperationMetric(
-                operation_id=str(uuid.uuid4()),
-                timestamp_start=start_time,
-                timestamp_end=end_time,
-                operation_type=OperationType.DOWNLOAD,
-                workload_type=WorkloadType.S3,
-                object_key=key,
-                object_size_bytes=size,
-                duration_ms=duration_ms,
-                throughput_mbps=throughput_mbps,
-                success=success,
-                error_message=error_message,
-                driver=os.getenv("S3_CLIENT_TYPE", "s5cmd"),
-            )
-            metrics_collector.record_operation(metric)
+        metrics_collector.record_operation(
+            OperationType.DOWNLOAD,
+            key,
+            size_bytes if success else 0,
+            start_time,
+            end_time,
+            success,
+            error_message,
+        )
 
         # Report to Locust
-        duration = (end_time - start_time).total_seconds() * 1000
+        latency_ms = (end_time - start_time).total_seconds() * 1000
         if success:
-            events.request.fire(
-                request_type="S3_GET",
-                name=f"download_{expected_size // 1024}kb",
-                response_time=duration,
-                response_length=len(data),
+            self.environment.events.request.fire(
+                request_type="S3",
+                name=f"GET /{category}",
+                response_time=latency_ms,
+                response_length=size_bytes,
                 exception=None,
+                context={},
             )
         else:
-            events.request.fire(
-                request_type="S3_GET",
-                name=f"download_{expected_size // 1024}kb",
-                response_time=duration,
+            self.environment.events.request.fire(
+                request_type="S3",
+                name=f"GET /{category}",
+                response_time=latency_ms,
                 response_length=0,
-                exception=Exception(error_message or "Download failed"),
-            )
-
-    @task(5)
-    def list_objects(self):
-        """Occasionally list objects to simulate realistic access patterns"""
-        global metrics_collector
-
-        start_time = datetime.utcnow()
-        objects = self.list_objects_api()
-        end_time = datetime.utcnow()
-
-        success = objects is not None
-
-        # Record metrics
-        if metrics_collector:
-            duration_ms = (end_time - start_time).total_seconds() * 1000
-
-            metric = OperationMetric(
-                operation_id=str(uuid.uuid4()),
-                timestamp_start=start_time,
-                timestamp_end=end_time,
-                operation_type=OperationType.LIST,
-                workload_type=WorkloadType.S3,
-                object_key="",
-                object_size_bytes=0,
-                duration_ms=duration_ms,
-                throughput_mbps=0,
-                success=success,
-                driver=os.getenv("S3_CLIENT_TYPE", "s5cmd"),
-                metadata={"object_count": len(objects) if objects else 0},
-            )
-            metrics_collector.record_operation(metric)
-
-        # Report to Locust
-        duration = (end_time - start_time).total_seconds() * 1000
-        if success:
-            events.request.fire(
-                request_type="S3_LIST",
-                name="list_objects",
-                response_time=duration,
-                response_length=len(objects) if objects else 0,
-                exception=None,
-            )
-        else:
-            events.request.fire(
-                request_type="S3_LIST",
-                name="list_objects",
-                response_time=duration,
-                response_length=0,
-                exception=Exception("List failed"),
+                exception=Exception(error_message),
+                context={},
             )

@@ -1,0 +1,18 @@
+# S3 Read Overload Scenario Configuration
+# Simulates release day traffic with heavy read load
+
+# Number of objects to create in each size category
+num_small_objects: 100
+num_medium_objects: 50
+num_large_objects: 20
+
+# Object sizes
+small_object_size_kb: 10      # 10 KB
+medium_object_size_kb: 500    # 500 KB
+large_object_size_mb: 10      # 10 MB
+
+# Read operation weights (proportional distribution)
+# Higher weight = more frequent reads of that object type
+read_weight_small: 60    # 60% of reads target small objects
+read_weight_medium: 30   # 30% of reads target medium objects
+read_weight_large: 10    # 10% of reads target large objects

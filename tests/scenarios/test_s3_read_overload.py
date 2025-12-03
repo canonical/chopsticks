@@ -31,7 +31,9 @@ def s3_read_overload_user():
         },
     ):
         # Mock the driver initialization and Locust User
-        with patch("chopsticks.workloads.s3.s3_workload.S5cmdDriver") as mock_driver_class:
+        with patch(
+            "chopsticks.workloads.s3.s3_workload.S5cmdDriver"
+        ) as mock_driver_class:
             with patch("locust.User.__init__", return_value=None):
                 mock_driver = Mock()
                 mock_driver_class.return_value = mock_driver

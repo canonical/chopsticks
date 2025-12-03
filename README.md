@@ -137,33 +137,115 @@ The metrics system tracks:
 
 See [METRICS_DESIGN.md](METRICS_DESIGN.md) for complete details.
 
+## Configuration Architecture
+
+Chopsticks uses a strict configuration-driven approach with **no default values**:
+
+1. **Workload Configuration** (`config/s3_config.yaml`): Client connection details
+2. **Scenario Configuration** (`config/scenarios/<scenario>.yaml`): Test-specific parameters
+
+### Design Principles
+
+- **Explicit over Implicit**: All parameters must be explicitly configured
+- **Fail Fast**: Missing configuration causes immediate failure, not silent defaults
+- **No Environment Variables**: Configuration via YAML files only (except Locust CLI args)
+- **Type Safety**: Configuration validated at load time
+
+### Example: S3 Workload Configuration
+
+```yaml
+# config/s3_config.yaml
+endpoint: https://s3.example.com
+access_key: YOUR_ACCESS_KEY
+secret_key: YOUR_SECRET_KEY
+bucket: test-bucket
+region: us-east-1
+driver: s5cmd
+```
+
+### Example: Scenario Configuration
+
+```yaml
+# config/scenarios/s3_read_overload.yaml
+num_small_objects: 100
+num_medium_objects: 50
+num_large_objects: 20
+small_object_size_kb: 10
+medium_object_size_kb: 500
+large_object_size_mb: 10
+read_weight_small: 60
+read_weight_medium: 30
+read_weight_large: 10
+```
+
 ## Creating New Scenarios
 
-1. Create a new scenario file in `src/chopsticks/scenarios/`
-2. Inherit from the appropriate workload class
-3. Define your test tasks with `@task` decorator
+1. Create scenario configuration in `config/scenarios/<scenario>.yaml`
+2. Create scenario file in `src/chopsticks/scenarios/<scenario>.py`
+3. Load both workload and scenario configurations explicitly
+4. Validate all required fields at startup
+5. Fail immediately if any configuration is missing
 
 Example:
 
 ```python
-from locust import task, between
+import yaml
+from locust import task, between, events
 from chopsticks.workloads.s3.s3_workload import S3Workload
+
+# Global configuration state
+s3_config = None
+scenario_config = None
+
+def load_s3_config():
+    with open("config/s3_config.yaml", "r") as f:
+        config = yaml.safe_load(f)
+    
+    required = ["endpoint", "access_key", "secret_key", "bucket", "region", "driver"]
+    for field in required:
+        if field not in config:
+            raise ValueError(f"Missing required S3 configuration: {field}")
+    
+    return config
+
+def load_scenario_config():
+    with open("config/scenarios/my_scenario.yaml", "r") as f:
+        config = yaml.safe_load(f)
+    
+    required = ["param1", "param2"]  # Define your required params
+    for field in required:
+        if field not in config:
+            raise ValueError(f"Missing required scenario configuration: {field}")
+    
+    return config
+
+@events.init.add_listener
+def on_locust_init(environment, **kwargs):
+    global s3_config, scenario_config
+    s3_config = load_s3_config()
+    scenario_config = load_scenario_config()
 
 class MyCustomScenario(S3Workload):
     wait_time = between(1, 3)
     
-    @task(3)
-    def upload_large_file(self):
-        key = self.generate_key("large")
-        data = self.generate_data(100 * 1024 * 1024)  # 100MB
-        self.client.upload(key, data)
+    def __init__(self, *args, **kwargs):
+        if s3_config is None:
+            raise RuntimeError("S3 configuration not loaded")
+        
+        super().__init__(
+            endpoint=s3_config["endpoint"],
+            access_key=s3_config["access_key"],
+            secret_key=s3_config["secret_key"],
+            bucket=s3_config["bucket"],
+            region=s3_config["region"],
+            client_type=s3_config["driver"],
+        )
     
-    @task(2)
-    def download_file(self):
-        # Download previously uploaded file
-        if self.uploaded_keys:
-            key = random.choice(self.uploaded_keys)
-            self.client.download(key)
+    @task
+    def my_task(self):
+        # Use scenario_config for test parameters
+        size = scenario_config["param1"] * 1024
+        # ... rest of task
 ```
 
 ## Available Scenarios
@@ -182,22 +264,27 @@ LARGE_OBJECT_SIZE=50 uv run locust -f src/chopsticks/scenarios/s3_large_objects.
 
 ### S3 Read Overload (Release Day Simulation)
 
-Simulates a release day scenario with heavy read traffic. During setup, multiple objects of various sizes (1KB to 25MB) are uploaded. The test then saturates read throughput with weighted access patterns (smaller files accessed more frequently).
+Simulates a release day scenario with heavy read traffic. During setup, objects of three size categories are uploaded. The test then saturates read throughput with weighted access patterns (smaller files accessed more frequently).
 
-**Configuration:**
-- `MIN_OBJECT_SIZE_KB`: Minimum object size in KB (default: 1)
-- `MAX_OBJECT_SIZE_MB`: Maximum object size in MB (default: 25)
-- `NUM_OBJECTS`: Number of objects to create during setup (default: 100)
-- `METRICS_PORT`: Port for metrics HTTP server (default: 9090)
+**Configuration File:** `config/scenarios/s3_read_overload.yaml`
 
-**Object Distribution:**
-- 40% small objects (1KB - 100KB)
-- 30% medium objects (100KB - 1MB)
-- 20% large objects (1MB - 10MB)
-- 10% very large objects (10MB - 25MB)
+**Required Parameters:**
+- `num_small_objects`: Number of small objects to create
+- `num_medium_objects`: Number of medium objects to create
+- `num_large_objects`: Number of large objects to create
+- `small_object_size_kb`: Size of small objects in KB
+- `medium_object_size_kb`: Size of medium objects in KB
+- `large_object_size_mb`: Size of large objects in MB
+- `read_weight_small`: Percentage of reads targeting small objects
+- `read_weight_medium`: Percentage of reads targeting medium objects
+- `read_weight_large`: Percentage of reads targeting large objects
 
-**Access Pattern:**
-- 80% of reads target smaller objects (realistic cache-friendly pattern)
+**Example:**
+```bash
+uv run locust -f src/chopsticks/scenarios/s3_read_overload.py --headless -u 50 -r 10 -t 10m
+```
+
+Metrics are automatically collected and exported. Access metrics at `http://localhost:9090/metrics`.
 - 20% of reads target any object randomly
 
 ```bash
