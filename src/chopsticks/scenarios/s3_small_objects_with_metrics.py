@@ -19,7 +19,7 @@ from locust import events, task
 
 from chopsticks.workloads.s3.s3_workload import S3Workload
 from chopsticks.metrics.collector import MetricsCollector
-from chopsticks.metrics.http_server import start_metrics_server
+from chopsticks.metrics.http_server import MetricsHTTPServer
 from chopsticks.metrics.models import (
     TestConfiguration,
     OperationType,

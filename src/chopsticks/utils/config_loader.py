@@ -21,7 +21,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def get_config_path(workload: str, config_name: str = None) -> Path:
+def get_config_path(workload: str, config_name: str | None = None) -> Path:
     """
     Get configuration file path
 

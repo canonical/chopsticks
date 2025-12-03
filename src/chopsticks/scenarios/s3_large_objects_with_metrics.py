@@ -137,8 +137,8 @@ class S3LargeObjectsWithMetrics(S3Workload):
         start_time: datetime,
         end_time: datetime,
         success: bool,
-        error_code: str = None,
-        error_msg: str = None,
+        error_code: str | None = None,
+        error_msg: str | None = None,
     ):
         """Record operation metric"""
         global metrics_collector, metrics_server

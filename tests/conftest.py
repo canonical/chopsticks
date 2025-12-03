@@ -30,7 +30,7 @@ def sample_metric_data():
     """Provide sample metric data for testing."""
     start = datetime.utcnow()
     end = start + timedelta(seconds=1)
-    
+
     return {
         "start": start,
         "end": end,
