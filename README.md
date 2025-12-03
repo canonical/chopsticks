@@ -180,6 +180,38 @@ uv run locust -f src/chopsticks/scenarios/s3_large_objects.py
 LARGE_OBJECT_SIZE=50 uv run locust -f src/chopsticks/scenarios/s3_large_objects.py
 ```
 
+### S3 Read Overload (Release Day Simulation)
+
+Simulates a release day scenario with heavy read traffic. During setup, multiple objects of various sizes (1KB to 25MB) are uploaded. The test then saturates read throughput with weighted access patterns (smaller files accessed more frequently).
+
+**Configuration:**
+- `MIN_OBJECT_SIZE_KB`: Minimum object size in KB (default: 1)
+- `MAX_OBJECT_SIZE_MB`: Maximum object size in MB (default: 25)
+- `NUM_OBJECTS`: Number of objects to create during setup (default: 100)
+- `METRICS_PORT`: Port for metrics HTTP server (default: 9090)
+
+**Object Distribution:**
+- 40% small objects (1KB - 100KB)
+- 30% medium objects (100KB - 1MB)
+- 20% large objects (1MB - 10MB)
+- 10% very large objects (10MB - 25MB)
+
+**Access Pattern:**
+- 80% of reads target smaller objects (realistic cache-friendly pattern)
+- 20% of reads target any object randomly
+
+```bash
+# Default configuration with metrics
+uv run locust -f src/chopsticks/scenarios/s3_read_overload.py --headless -u 50 -r 5 -t 10m
+
+# Custom configuration
+NUM_OBJECTS=200 MAX_OBJECT_SIZE_MB=50 METRICS_PORT=9091 \
+  uv run locust -f src/chopsticks/scenarios/s3_read_overload.py --headless -u 100 -r 10 -t 20m
+
+# Access metrics during test
+curl http://localhost:9090/metrics
+```
+
 ## Adding New Drivers
 
 1. Create driver class in `src/chopsticks/drivers/s3/` (or appropriate workload)
