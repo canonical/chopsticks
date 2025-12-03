@@ -14,6 +14,7 @@ from .models import (
 
 from .collector import MetricsCollector
 from .prometheus_exporter import PrometheusExporter
+from .http_server import MetricsHTTPServer
 
 __all__ = [
     'OperationMetric',
@@ -26,5 +27,6 @@ __all__ = [
     'WorkloadType',
     'ErrorCategory',
     'MetricsCollector',
-    'PrometheusExporter'
+    'PrometheusExporter',
+    'MetricsHTTPServer'
 ]

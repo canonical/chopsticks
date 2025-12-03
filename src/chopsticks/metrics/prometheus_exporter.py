@@ -105,9 +105,11 @@ class PrometheusExporter:
             
             for bucket in buckets:
                 count = sum(1 for v in sorted_vals if v <= bucket)
-                lines.append(f'{full_name}_bucket{label_str.replace("{", "{le=\"")},le="{bucket}"} {count}')
+                bucket_labels = label_str[:-1] + f',le="{bucket}"' + '}' if label_str.endswith('}') else f'{{le="{bucket}"}}'
+                lines.append(f'{full_name}_bucket{bucket_labels} {count}')
             
-            lines.append(f'{full_name}_bucket{label_str.replace("{", "{le=\"")},le="+Inf"} {len(vals)}')
+            inf_labels = label_str[:-1] + ',le="+Inf"' + '}' if label_str.endswith('}') else '{le="+Inf"}'
+            lines.append(f'{full_name}_bucket{inf_labels} {len(vals)}')
             lines.append(f'{full_name}_sum{label_str} {sum(vals)}')
             lines.append(f'{full_name}_count{label_str} {len(vals)}')
         

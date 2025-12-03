@@ -80,6 +80,10 @@ class StatisticalSummary:
     p99_9: float
     stddev: float
     variance: float
+    
+    def to_dict(self) -> Dict[str, float]:
+        """Convert to dictionary"""
+        return asdict(self)
 
 
 @dataclass
