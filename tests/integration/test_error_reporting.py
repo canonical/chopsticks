@@ -15,19 +15,21 @@ import pytest
 @pytest.mark.integration
 @pytest.mark.timeout(30)
 def test_locust_reports_failures_with_bad_config():
-    """Test that Locust properly reports failures when given invalid configuration"""
+    """Test that Locust properly reports failures using dummy driver that always fails"""
 
-    # Create a temporary config file with invalid credentials
+    # Create a temporary config file with dummy driver that always fails
     bad_config = {
-        "endpoint": "http://invalid-endpoint-that-does-not-exist:9999",
-        "access_key": "invalid_access_key",
-        "secret_key": "invalid_secret_key",
+        "endpoint": "http://localhost:9999",
+        "access_key": "test_access_key",
+        "secret_key": "test_secret_key",
         "region": "default",
-        "bucket": "invalid-bucket",
-        "driver": "s5cmd",
+        "bucket": "test-bucket",
+        "driver": "dummy",
     }
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix="_config.yaml", delete=False
+    ) as f:
         yaml.dump(bad_config, f)
         config_path = f.name
 
@@ -59,16 +61,18 @@ def test_locust_reports_failures_with_bad_config():
 
         output = result.stdout + result.stderr
 
+        # The test should complete successfully (not hang or crash)
+        # Return code 0 means Locust ran successfully, even if operations failed
+        assert result.returncode == 0, (
+            f"Chopsticks should run successfully even with failing operations.\n"
+            f"Return code: {result.returncode}\nOutput:\n{output}"
+        )
+
         # Check that the output contains failure information
-        # Locust should report failures
+        # Since dummy driver always fails, we expect 100% failures
         assert (
             "100% failures" in output or "Failures/s" in output or "# fails" in output
         ), f"Expected failure reporting in output, got:\n{output}"
-
-        # The test should complete (not hang forever)
-        assert result.returncode in [0, 1], (
-            f"Unexpected return code: {result.returncode}"
-        )
 
     finally:
         # Clean up temp file

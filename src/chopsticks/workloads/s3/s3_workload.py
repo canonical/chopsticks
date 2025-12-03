@@ -5,6 +5,7 @@ from typing import Optional, Dict
 
 from chopsticks.drivers.s3.base import BaseS3Driver
 from chopsticks.drivers.s3.s5cmd_driver import S5cmdDriver
+from chopsticks.drivers.s3.dummy_driver import DummyDriver
 from chopsticks.utils.config_loader import load_config, get_config_path
 
 
@@ -177,6 +178,7 @@ class S3Workload(User):
         """Get driver instance by name"""
         drivers = {
             "s5cmd": S5cmdDriver,
+            "dummy": DummyDriver,
         }
 
         driver_class = drivers.get(driver_name)
