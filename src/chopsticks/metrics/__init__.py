@@ -9,7 +9,7 @@ from .models import (
     TestConfiguration,
     OperationType,
     WorkloadType,
-    ErrorCategory
+    ErrorCategory,
 )
 
 from .collector import MetricsCollector
@@ -17,16 +17,16 @@ from .prometheus_exporter import PrometheusExporter
 from .http_server import MetricsHTTPServer
 
 __all__ = [
-    'OperationMetric',
-    'AggregatedMetrics',
-    'StatisticalSummary',
-    'SystemResourceMetric',
-    'ErrorMetric',
-    'TestConfiguration',
-    'OperationType',
-    'WorkloadType',
-    'ErrorCategory',
-    'MetricsCollector',
-    'PrometheusExporter',
-    'MetricsHTTPServer'
+    "OperationMetric",
+    "AggregatedMetrics",
+    "StatisticalSummary",
+    "SystemResourceMetric",
+    "ErrorMetric",
+    "TestConfiguration",
+    "OperationType",
+    "WorkloadType",
+    "ErrorCategory",
+    "MetricsCollector",
+    "PrometheusExporter",
+    "MetricsHTTPServer",
 ]

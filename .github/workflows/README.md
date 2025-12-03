@@ -1,79 +1,272 @@
 # Chopsticks GitHub Actions Workflows
 
-## Functional Tests
+This directory contains CI/CD workflows for automated testing and validation of the Chopsticks framework.
 
-The `functional-tests.yml` workflow runs comprehensive S3 stress tests on every pull request to validate that the framework is working correctly.
+## Workflows
 
-### What It Tests
+### 1. CI Pipeline (`ci.yml`)
 
-1. **MicroCeph Setup**: Deploys a single-node MicroCeph cluster with 3 OSDs using loop devices
-2. **S3 Configuration**: Creates S3 user, configures RGW endpoint, and sets up test bucket
-3. **S3 Operations**: Runs 2-minute stress test with:
-   - 3 concurrent users
-   - 10MB object size
-   - Upload, download, and delete operations
-4. **Metrics Collection**: Validates that metrics are collected and exported
-5. **Success Validation**: Ensures 100% success rate and minimum operation count
+**The main CI pipeline** that runs on all pull requests and pushes to main.
 
-### Workflow Triggers
+#### Jobs
 
-- **Pull Requests**: Runs on all PRs targeting `main`
-- **Push to main**: Runs after merging
-- **Manual**: Can be triggered manually via GitHub Actions UI
+1. **Lint** - Code quality checks
+   - Runs `ruff check` for linting
+   - Runs `ruff format --check` for code formatting
+   - Fast execution (~1-2 minutes)
 
-### Test Duration
+2. **Unit Tests** - Fast, isolated tests
+   - Runs pytest on unit tests
+   - Generates coverage report (XML format)
+   - Uploads coverage as artifact (7-day retention)
+   - Fast execution (~1-2 minutes)
 
-- **Total Runtime**: ~15-20 minutes
-  - MicroCeph setup: ~5 minutes
-  - Test execution: 2 minutes
-  - Cleanup and validation: ~1 minute
+**Triggers:**
+- Pull requests to `main`
+- Pushes to `main`
 
-### Artifacts
+**Total Duration:** ~2-3 minutes
 
-The workflow uploads test artifacts that persist for 30 days:
-- HTML test report (`chopsticks-ci-report.html`)
-- Metrics files (JSON, CSV, JSONL)
-- Locust statistics CSV files
+### 2. Lint Workflow (`lint.yml`)
 
-### Running Locally
+Standalone linting workflow for quick code quality validation.
 
-You can run the same functional test locally using the provided script:
+**What it does:**
+- Runs `ruff check` to find code issues
+- Runs `ruff format --check` to validate formatting
+
+**When to use:** For quick validation before pushing.
+
+### 3. Unit Test Workflow (`test.yml`)
+
+Standalone unit testing workflow.
+
+**What it does:**
+- Runs pytest on unit tests
+- Generates coverage reports (XML and terminal output)
+- Uploads coverage artifacts (7-day retention)
+
+**When to use:** For running tests independently of linting.
+
+### 4. Functional Tests (`functional-tests.yml`)
+
+Comprehensive integration tests with real MicroCeph cluster.
+
+**What it tests:**
+1. **MicroCeph Setup**: Single-node cluster with 3 OSDs
+2. **S3 Configuration**: User creation and RGW endpoint setup
+3. **S3 Operations**: 2-minute stress test with multiple operations
+4. **Metrics Collection**: Validates metrics export
+5. **Success Validation**: Ensures 100% success rate
+
+**Duration:** ~15-20 minutes
+**Artifacts:** Test reports and metrics (30-day retention)
+
+## Running Tests Locally
+
+### Lint
 
 ```bash
-# With default settings (2 minutes, 10MB objects, 3 users)
+# Check code
+uv run ruff check src/chopsticks/
+
+# Check formatting
+uv run ruff format --check src/chopsticks/
+
+# Auto-fix issues
+uv run ruff check --fix src/chopsticks/
+
+# Auto-format code
+uv run ruff format src/chopsticks/
+```
+
+### Unit Tests
+
+```bash
+# Run all unit tests
+uv run pytest tests/unit/ -v
+
+# Run with coverage
+uv run pytest tests/unit/ --cov=src/chopsticks --cov-report=term
+
+# Run specific test file
+uv run pytest tests/unit/test_metrics.py -v
+
+# Run specific test
+uv run pytest tests/unit/test_metrics.py::TestOperationMetric::test_metric_creation -v
+```
+
+### Functional Tests
+
+```bash
+# Run with default settings (requires MicroCeph)
 ./scripts/run-functional-test.sh
 
-# With custom settings
+# Custom configuration
 TEST_DURATION=5m LARGE_OBJECT_SIZE=50 TEST_USERS=5 ./scripts/run-functional-test.sh
 ```
 
-**Prerequisites:**
-- MicroCeph installed and running
-- RGW enabled
-- `uv`, `jq`, and `s5cmd` installed
+## CI Pipeline Flow
 
-### Validation Criteria
+```
+┌─────────────────────────────────────────┐
+│         Pull Request Created            │
+└─────────────────────────────────────────┘
+                    │
+                    ▼
+      ┌─────────────────────────┐
+      │   CI Pipeline Starts    │
+      └─────────────────────────┘
+                    │
+        ┌───────────┴───────────┐
+        │                       │
+        ▼                       ▼
+┌──────────────┐      ┌──────────────────┐
+│     Lint     │      │   Unit Tests     │
+│   (~2 min)   │      │    (~2 min)      │
+└──────────────┘      └──────────────────┘
+        │                       │
+        │                       │
+        │    Both run in        │
+        │     parallel          │
+        │                       │
+        └───────────┬───────────┘
+                    ▼
+         ┌──────────────────┐
+         │   All Passed ✅   │
+         │  Ready to Merge   │
+         └──────────────────┘
+```
 
-The test passes if:
-1. ✅ Success rate is 100%
-2. ✅ At least 10 operations completed
-3. ✅ Metrics files are generated correctly
-4. ✅ No exceptions or errors occurred
+## Test Coverage
 
-### Failure Scenarios
+### Unit Tests (`tests/unit/`)
 
-The test fails if:
-- ❌ MicroCeph fails to start
-- ❌ RGW endpoint is not accessible
-- ❌ Any S3 operation fails
-- ❌ Success rate < 100%
-- ❌ Metrics not exported properly
+- **Metrics module**: OperationMetric, MetricsCollector, TestConfiguration
+- **Configuration**: YAML loading and validation
+- **Fast execution**: No external dependencies
+- **Coverage reporting**: Line-by-line coverage metrics
 
-### Future Enhancements
+### Functional Tests (workflow-based)
 
-Planned additions:
-- [ ] RBD workload tests
-- [ ] Multi-scenario tests
-- [ ] Performance regression detection
-- [ ] Integration with different S3 client drivers
-- [ ] Grafana dashboard validation
+- **Full S3 workload**: Real MicroCeph cluster
+- **Metrics collection**: End-to-end validation
+- **Performance validation**: Throughput and success rates
+
+## Artifacts
+
+### Coverage Report (Unit Tests)
+- **Generated by**: `test.yml` and `ci.yml`
+- **Format**: XML (`coverage.xml`)
+- **Retention**: 7 days
+- **Contains**: Line and branch coverage data
+
+### Functional Test Report
+- **Generated by**: `functional-tests.yml`
+- **Files**: HTML report, metrics (JSON/CSV/JSONL), Locust stats
+- **Retention**: 30 days
+
+## Validation Criteria
+
+### Lint
+- ✅ No ruff errors or warnings
+- ✅ Code properly formatted (PEP 8 compliant)
+
+### Unit Tests
+- ✅ All tests pass
+- ✅ Coverage report generated successfully
+
+### Functional Tests
+- ✅ MicroCeph cluster healthy
+- ✅ S3 operations execute successfully
+- ✅ Success rate = 100%
+- ✅ Minimum 10 operations completed
+- ✅ Metrics files generated and valid
+
+## Troubleshooting
+
+### Lint Failures
+
+```bash
+# View errors
+uv run ruff check src/chopsticks/
+
+# Auto-fix
+uv run ruff check --fix src/chopsticks/
+
+# Format code
+uv run ruff format src/chopsticks/
+```
+
+### Unit Test Failures
+
+```bash
+# Run with verbose output
+uv run pytest tests/unit/ -vv
+
+# Run failing test only
+uv run pytest tests/unit/test_metrics.py::TestMetricsCollector -vv
+
+# Run with debug output
+uv run pytest tests/unit/ -vv -s
+```
+
+### Functional Test Failures
+
+Check:
+1. MicroCeph installation logs
+2. S3 endpoint accessibility
+3. Metrics file generation
+4. Test artifacts in Actions tab
+
+## Adding New Tests
+
+### Unit Tests
+
+1. Create test file in `tests/unit/test_<module>.py`
+2. Follow naming convention: `test_<function_name>`
+3. Use pytest fixtures from `conftest.py`
+4. Run locally before pushing
+
+Example:
+```python
+def test_my_feature(sample_test_config):
+    """Test my new feature."""
+    collector = MetricsCollector(
+        test_run_id="test-123",
+        test_config=sample_test_config,
+    )
+    assert collector is not None
+```
+
+### Integration Tests
+
+1. Create test in `tests/integration/`
+2. Mark with `@pytest.mark.integration`
+3. May require external dependencies
+
+## Performance
+
+### Expected Timings
+
+- **Lint**: 1-2 minutes
+- **Unit Tests**: 1-2 minutes
+- **Functional Tests**: 15-20 minutes
+- **Total CI (Lint + Unit)**: ~2-3 minutes
+
+### Optimization Tips
+
+- Lint and unit tests run in parallel
+- Use `pytest -n auto` for parallel test execution (future)
+- Functional tests run independently (can be skipped for quick validation)
+
+## Future Enhancements
+
+Planned improvements:
+- [ ] Add integration tests for different drivers
+- [ ] Add RBD workload functional tests
+- [ ] Add performance regression detection
+- [ ] Add code coverage thresholds (e.g., 80%)
+- [ ] Add automated benchmarking
+- [ ] Add security scanning (Dependabot, CodeQL)
+- [ ] Add matrix testing (multiple Python versions)

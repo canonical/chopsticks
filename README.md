@@ -402,32 +402,42 @@ uv run ruff check src/chopsticks/
 
 ## Testing
 
-### Functional Tests
-
-Chopsticks includes automated functional tests that run on every pull request to validate the framework against a real MicroCeph cluster.
-
-#### Running Tests Locally
+### Linting
 
 ```bash
-# Run with default settings (2 minutes, 10MB objects, 3 users)
+# Check code quality
+uv run ruff check src/chopsticks/
+
+# Format code
+uv run ruff format src/chopsticks/
+```
+
+### Unit Tests
+
+```bash
+# Run unit tests
+uv run pytest tests/unit/ -v
+
+# Run with coverage
+uv run pytest tests/unit/ --cov=src/chopsticks --cov-report=term
+```
+
+### Functional Tests
+
+```bash
+# Run with default settings (requires MicroCeph)
 ./scripts/run-functional-test.sh
 
-# Run with custom settings
+# Custom configuration
 TEST_DURATION=5m LARGE_OBJECT_SIZE=50 TEST_USERS=5 ./scripts/run-functional-test.sh
 ```
 
-**Prerequisites:**
-- MicroCeph installed and running with RGW enabled
-- `uv`, `jq`, and `s5cmd` installed
+### CI/CD
 
-#### CI/CD Integration
-
-The GitHub Actions workflow (`.github/workflows/functional-tests.yml`) automatically:
-1. Sets up MicroCeph with 3 OSDs using loop devices
-2. Configures S3 endpoint and creates test bucket
-3. Runs 2-minute stress test with metrics collection
-4. Validates 100% success rate and operation count
-5. Uploads test artifacts (HTML report, metrics files)
+All pull requests automatically run:
+- **Lint** - Code quality checks (~2 minutes)
+- **Unit Tests** - Fast, isolated tests (~2 minutes)
+- **Functional Tests** - Full integration with MicroCeph (~15-20 minutes, runs independently)
 
 See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
 
@@ -438,7 +448,7 @@ See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
 - [QUICKSTART.md](QUICKSTART.md) - Quick start guide
 - [FRAMEWORK_SUMMARY.md](FRAMEWORK_SUMMARY.md) - Complete framework overview
 - [TEST_RUN_SUMMARY.md](TEST_RUN_SUMMARY.md) - Live test results
-- [.github/workflows/README.md](.github/workflows/README.md) - CI/CD functional tests
+- [.github/workflows/README.md](.github/workflows/README.md) - CI/CD workflows
 
 ## Contributing
 
@@ -447,7 +457,8 @@ See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
 3. Add metrics collection to new workloads
 4. Include comprehensive docstrings
 5. Follow Conventional Commits for commit messages
-6. Ensure functional tests pass before submitting PR
+6. Run linting and unit tests before submitting PR
+7. Ensure CI pipeline passes
 
 ## License
 
