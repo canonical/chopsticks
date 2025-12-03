@@ -1,0 +1,25 @@
+[project]
+name = "chopsticks"
+version = "0.1.0"
+description = "Ceph stress testing framework using Locust"
+readme = "README.md"
+authors = [
+    {name = "Utkarsh Bhatt", email = "utkarsh.bhatt@canonical.com"}
+]
+requires-python = ">=3.12"
+dependencies = [
+    "locust>=2.20.0",
+    "pyyaml>=6.0",
+    "boto3>=1.34.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.5,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]

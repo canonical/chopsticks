@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# uv
+.python-version
+uv.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Locust
+locust_*.log
+
+# Configuration (contains secrets)
+config/*_config.yaml
+!config/*_config.yaml.example
+
+# Temporary files
+*.tmp
+*.log
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Downloaded binaries
+bin/
+s5cmd
