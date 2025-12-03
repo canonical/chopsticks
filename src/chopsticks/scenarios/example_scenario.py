@@ -68,7 +68,7 @@ class ExampleS3Scenario(S3Workload):
         # Verify download was successful
         if data is None:
             raise Exception(f"Download failed for key: {key}")
-        
+
         # Verify download size
         if len(data) != self.object_size_bytes:
             raise Exception(

@@ -42,11 +42,11 @@ class S5cmdDriver(BaseS3Driver):
             success = result.returncode == 0
             stdout = result.stdout.decode() if result.stdout else ""
             stderr = result.stderr.decode() if result.stderr else ""
-            
+
             # Check for errors in stderr even if return code is 0
             if not success or "ERROR" in stderr or "error" in stderr:
                 return False, stdout, stderr if stderr else "Command failed"
-            
+
             return success, stdout, stderr
         except subprocess.TimeoutExpired:
             return False, "", "Command timed out after {} seconds".format(timeout)

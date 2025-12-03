@@ -54,7 +54,7 @@ class S3LargeObjectTest(S3Workload):
         # Verify download was successful
         if data is None:
             raise Exception(f"Download failed for key: {key}")
-        
+
         # Verify size
         if len(data) != self.object_size_bytes:
             raise Exception(

@@ -6,9 +6,7 @@ in various failure scenarios.
 """
 
 import pytest
-import tempfile
-import os
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from locust import events
 
 from chopsticks.drivers.s3.s5cmd_driver import S5cmdDriver
@@ -34,7 +32,11 @@ class TestS5cmdDriverErrorHandling:
         """Test that upload fails with invalid endpoint"""
         driver = S5cmdDriver(self.config)
         with patch.object(driver, "_run_command") as mock_run:
-            mock_run.return_value = (False, "", "ERROR: dial tcp: lookup invalid-endpoint: no such host")
+            mock_run.return_value = (
+                False,
+                "",
+                "ERROR: dial tcp: lookup invalid-endpoint: no such host",
+            )
             success = driver.upload("test-key", b"test data")
             assert success is False, "Upload should fail with invalid endpoint"
 
@@ -43,7 +45,11 @@ class TestS5cmdDriverErrorHandling:
         """Test that download fails with invalid endpoint"""
         driver = S5cmdDriver(self.config)
         with patch.object(driver, "_run_command") as mock_run:
-            mock_run.return_value = (False, "", "ERROR: dial tcp: lookup invalid-endpoint: no such host")
+            mock_run.return_value = (
+                False,
+                "",
+                "ERROR: dial tcp: lookup invalid-endpoint: no such host",
+            )
             data = driver.download("test-key")
             assert data is None, "Download should return None with invalid endpoint"
 
@@ -52,7 +58,11 @@ class TestS5cmdDriverErrorHandling:
         """Test that delete fails with invalid endpoint"""
         driver = S5cmdDriver(self.config)
         with patch.object(driver, "_run_command") as mock_run:
-            mock_run.return_value = (False, "", "ERROR: dial tcp: lookup invalid-endpoint: no such host")
+            mock_run.return_value = (
+                False,
+                "",
+                "ERROR: dial tcp: lookup invalid-endpoint: no such host",
+            )
             success = driver.delete("test-key")
             assert success is False, "Delete should fail with invalid endpoint"
 
@@ -61,7 +71,11 @@ class TestS5cmdDriverErrorHandling:
         """Test that list_objects returns empty list with invalid endpoint"""
         driver = S5cmdDriver(self.config)
         with patch.object(driver, "_run_command") as mock_run:
-            mock_run.return_value = (False, "", "ERROR: dial tcp: lookup invalid-endpoint: no such host")
+            mock_run.return_value = (
+                False,
+                "",
+                "ERROR: dial tcp: lookup invalid-endpoint: no such host",
+            )
             keys = driver.list_objects()
             assert keys == [], "List should return empty list with invalid endpoint"
 
@@ -70,7 +84,11 @@ class TestS5cmdDriverErrorHandling:
         """Test that head_object returns None with invalid endpoint"""
         driver = S5cmdDriver(self.config)
         with patch.object(driver, "_run_command") as mock_run:
-            mock_run.return_value = (False, "", "ERROR: dial tcp: lookup invalid-endpoint: no such host")
+            mock_run.return_value = (
+                False,
+                "",
+                "ERROR: dial tcp: lookup invalid-endpoint: no such host",
+            )
             metadata = driver.head_object("test-key")
             assert metadata is None, "Head should return None with invalid endpoint"
 
@@ -238,11 +256,11 @@ class TestEndToEndErrorHandling:
         }
 
         driver = S5cmdDriver(bad_config)
-        
+
         # Mock the _run_command to simulate failures without actual network calls
         with patch.object(driver, "_run_command") as mock_run:
             mock_run.return_value = (False, "", "ERROR: connection failed")
-            
+
             client = S3Client(driver)
 
             failed_count = 0
@@ -262,16 +280,16 @@ class TestEndToEndErrorHandling:
                     failed_count += 1
 
             # Verify 100% failure rate
-            assert (
-                failed_count == total_operations
-            ), f"Expected 100% failure rate, got {failed_count}/{total_operations}"
+            assert failed_count == total_operations, (
+                f"Expected 100% failure rate, got {failed_count}/{total_operations}"
+            )
 
             # Verify all events have exceptions
             assert len(fired_events) == total_operations
             for event in fired_events:
-                assert (
-                    event["exception"] is not None
-                ), "All failed operations should have exceptions"
+                assert event["exception"] is not None, (
+                    "All failed operations should have exceptions"
+                )
 
     @pytest.mark.timeout(10)
     def test_mixed_operations_all_fail_with_bad_config(self):
@@ -285,11 +303,11 @@ class TestEndToEndErrorHandling:
         }
 
         driver = S5cmdDriver(bad_config)
-        
+
         # Mock the _run_command to simulate failures
         with patch.object(driver, "_run_command") as mock_run:
             mock_run.return_value = (False, "", "ERROR: connection failed")
-            
+
             client = S3Client(driver)
 
             fired_events = []
@@ -323,5 +341,7 @@ class TestEndToEndErrorHandling:
             assert all(results), "All operations should fail with invalid config"
 
             # All should have exceptions (except list which may not fire exception event)
-            exception_count = sum(1 for e in fired_events if e.get("exception") is not None)
+            exception_count = sum(
+                1 for e in fired_events if e.get("exception") is not None
+            )
             assert exception_count >= 4, "Most operations should fire exception events"

@@ -1,7 +1,7 @@
 """Tests for download error handling in scenarios"""
+
 import pytest
-from unittest.mock import Mock, patch
-from datetime import datetime
+from unittest.mock import Mock
 
 
 class TestDownloadErrorHandling:

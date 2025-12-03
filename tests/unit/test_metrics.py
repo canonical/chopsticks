@@ -1,6 +1,5 @@
 """Unit tests for metrics module."""
 
-import pytest
 from datetime import datetime, timedelta
 from chopsticks.metrics import (
     OperationMetric,
@@ -18,7 +17,7 @@ class TestOperationMetric:
         """Test creating a basic metric."""
         start = datetime.utcnow()
         end = start + timedelta(seconds=1)
-        
+
         metric = OperationMetric(
             operation_id="test-123",
             timestamp_start=start,
@@ -32,7 +31,7 @@ class TestOperationMetric:
             success=True,
             driver="s5cmd",
         )
-        
+
         assert metric.operation_id == "test-123"
         assert metric.operation_type == OperationType.UPLOAD
         assert metric.success is True
@@ -42,7 +41,7 @@ class TestOperationMetric:
         """Test converting metric to dictionary."""
         start = datetime.utcnow()
         end = start + timedelta(milliseconds=500)
-        
+
         metric = OperationMetric(
             operation_id="test-dict",
             timestamp_start=start,
@@ -56,7 +55,7 @@ class TestOperationMetric:
             success=True,
             driver="s5cmd",
         )
-        
+
         data = metric.to_dict()
         assert data["operation_id"] == "test-dict"
         assert data["operation_type"] == "download"
@@ -82,10 +81,10 @@ class TestMetricsCollector:
             test_run_id="test-123",
             test_config=sample_test_config,
         )
-        
+
         start = datetime.utcnow()
         end = start + timedelta(seconds=1)
-        
+
         metric = OperationMetric(
             operation_id="test-record",
             timestamp_start=start,
@@ -99,7 +98,7 @@ class TestMetricsCollector:
             success=True,
             driver="s5cmd",
         )
-        
+
         collector.record_operation(metric)
         assert len(collector.operation_metrics) == 1
         assert collector.operation_metrics[0].operation_id == "test-record"
@@ -110,11 +109,11 @@ class TestMetricsCollector:
             test_run_id="test-123",
             test_config=sample_test_config,
         )
-        
+
         for i in range(5):
             start = datetime.utcnow()
             end = start + timedelta(seconds=1)
-            
+
             metric = OperationMetric(
                 operation_id=f"test-{i}",
                 timestamp_start=start,
@@ -129,7 +128,7 @@ class TestMetricsCollector:
                 driver="s5cmd",
             )
             collector.record_operation(metric)
-        
+
         assert len(collector.operation_metrics) == 5
 
     def test_success_failure_tracking(self, sample_test_config):
@@ -138,11 +137,11 @@ class TestMetricsCollector:
             test_run_id="test-123",
             test_config=sample_test_config,
         )
-        
+
         for idx, success in enumerate([True, True, False, True]):
             start = datetime.utcnow()
             end = start + timedelta(seconds=1)
-            
+
             metric = OperationMetric(
                 operation_id=f"test-{idx}",
                 timestamp_start=start,
@@ -157,7 +156,7 @@ class TestMetricsCollector:
                 driver="s5cmd",
             )
             collector.record_operation(metric)
-        
+
         assert len(collector.operation_metrics) == 4
         successful = sum(1 for m in collector.operation_metrics if m.success)
         assert successful == 3
@@ -177,7 +176,7 @@ class TestTestConfiguration:
             workload_type=WorkloadType.S3,
             driver="s5cmd",
         )
-        
+
         assert config.test_run_id == "config-test"
         assert config.test_name == "Test Configuration"
         assert config.workload_type == WorkloadType.S3
@@ -191,7 +190,7 @@ class TestTestConfiguration:
             start_time=start_time,
             workload_type=WorkloadType.S3,
         )
-        
+
         data = config.to_dict()
         assert data["test_run_id"] == "config-test"
         assert data["workload_type"] == "s3"

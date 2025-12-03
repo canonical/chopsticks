@@ -102,7 +102,7 @@ class AggregatedMetrics:
     operations: Dict[str, Any]
     duration_ms: StatisticalSummary
     throughput_mbps: StatisticalSummary
-    object_size_bytes: Dict[str, int]
+    object_size_bytes: Dict[str, float]
     request_rate: Dict[str, float]
 
     def to_dict(self) -> Dict[str, Any]:
