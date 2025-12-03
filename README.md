@@ -59,20 +59,72 @@ region: us-east-1
 driver: s5cmd
 ```
 
+### Available S3 Test Scenarios
+
+#### Phase 1: Core Scenarios (Implemented)
+
+1. **Large Objects** (`s3_large_objects_with_metrics.py`)
+   - **Purpose**: Test sequential I/O performance with 10MB+ objects
+   - **Use Case**: Backup systems, video storage, archival workloads
+   - **Operations**: 60% upload, 30% download, 10% delete
+   ```bash
+   uv run locust -f src/chopsticks/scenarios/s3_large_objects_with_metrics.py --headless -u 10 -r 2 -t 10m
+   ```
+
+2. **Small Objects** (`scenarios/s3/small_objects.py`)
+   - **Purpose**: High-frequency operations on small objects (1KB-100KB)
+   - **Use Case**: IoT data ingestion, log aggregation, microservices cache
+   - **Operations**: 70% upload, 20% download, 10% delete
+   ```bash
+   uv run locust -f src/chopsticks/scenarios/s3/small_objects.py --headless -u 20 -r 5 -t 10m
+   ```
+
+3. **Mixed Workload** (`scenarios/s3/mixed_workload.py`)
+   - **Purpose**: Realistic production patterns with varied object sizes
+   - **Use Case**: General-purpose object storage, web applications
+   - **Size Distribution**: 60% small, 30% medium, 10% large
+   - **Operations**: 50% upload, 35% download, 10% list, 5% delete
+   ```bash
+   uv run locust -f src/chopsticks/scenarios/s3/mixed_workload.py --headless -u 15 -r 3 -t 10m
+   ```
+
+4. **Concurrent Access** (`scenarios/s3/concurrent_access.py`)
+   - **Purpose**: Test concurrency control with shared object access
+   - **Use Case**: Content delivery, shared datasets, CDN origins
+   - **Operations**: 80% read, 10% list, 10% write (read-heavy)
+   ```bash
+   uv run locust -f src/chopsticks/scenarios/s3/concurrent_access.py --headless -u 50 -r 10 -t 10m
+   ```
+
+#### Configuration Files
+
+Each scenario has a corresponding YAML configuration in `config/scenarios/`:
+- `small_objects.yaml` - Small object test configuration
+- `mixed_workload.yaml` - Mixed workload configuration  
+- `concurrent_access.yaml` - Concurrent access configuration
+
+#### Future Scenarios
+
+See [SCENARIO_PROPOSALS.md](SCENARIO_PROPOSALS.md) for 12 proposed scenarios including:
+- Multipart upload, versioning, lifecycle management
+- Large bucket operations, bandwidth saturation
+- Metadata-only operations, failure injection
+- Directory simulation and more
+
 ### Run a Test
 
 ```bash
-# Run large object test with web UI (default: http://localhost:8089)
-uv run locust -f src/chopsticks/scenarios/s3_large_objects.py
+# Run with web UI (default: http://localhost:8089)
+uv run locust -f src/chopsticks/scenarios/s3_large_objects_with_metrics.py
 
 # Run headless mode with 10 users, spawn rate 2/sec, run for 10 minutes
-uv run locust -f src/chopsticks/scenarios/s3_large_objects.py --headless -u 10 -r 2 -t 10m
+uv run locust -f src/chopsticks/scenarios/s3_large_objects_with_metrics.py --headless -u 10 -r 2 -t 10m
 
 # Run distributed (master)
-uv run locust -f src/chopsticks/scenarios/s3_large_objects.py --master
+uv run locust -f src/chopsticks/scenarios/s3_mixed_workload_with_metrics.py --master
 
 # Run distributed (worker)
-uv run locust -f src/chopsticks/scenarios/s3_large_objects.py --worker --master-host=<master-ip>
+uv run locust -f src/chopsticks/scenarios/s3_mixed_workload_with_metrics.py --worker --master-host=<master-ip>
 ```
 
 ## Metrics Collection
