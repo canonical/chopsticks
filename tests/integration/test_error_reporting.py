@@ -62,9 +62,9 @@ def test_locust_reports_failures_with_bad_config():
         output = result.stdout + result.stderr
 
         # The test should complete successfully (not hang or crash)
-        # Return code 0 means Locust ran successfully, even if operations failed
-        assert result.returncode == 0, (
-            f"Chopsticks should run successfully even with failing operations.\n"
+        # Return code 0 = success, 1 = test failures (which we expect with dummy driver)
+        assert result.returncode in [0, 1], (
+            f"Chopsticks should run without crashing.\n"
             f"Return code: {result.returncode}\nOutput:\n{output}"
         )
 

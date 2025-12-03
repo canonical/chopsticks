@@ -277,8 +277,9 @@ class TestSetEnvironmentVariables:
         """Test setting workload config environment variable."""
         workload_config = tmp_path / "s3_config.yaml"
         workload_config.write_text("test: config")
-        locustfile = tmp_path / "scenario.py"
-        locustfile.write_text("# test")
+        locustfile = tmp_path / "s3_scenario.py"
+        # Create a proper scenario file with S3Workload class
+        locustfile.write_text("from locust import User\nclass S3Workload(User):\n    pass\nclass TestScenario(S3Workload):\n    pass")
 
         args = parse_args(
             ["--workload-config", str(workload_config), "-f", str(locustfile)]
@@ -297,10 +298,11 @@ class TestSetEnvironmentVariables:
         """Test setting scenario config environment variable."""
         workload_config = tmp_path / "rbd_config.yaml"
         scenario_config = tmp_path / "scenario.yaml"
-        locustfile = tmp_path / "scenario.py"
+        locustfile = tmp_path / "rbd_scenario.py"
         workload_config.write_text("test: config")
         scenario_config.write_text("scenario: config")
-        locustfile.write_text("# test")
+        # Create a proper scenario file with RbdWorkload class
+        locustfile.write_text("from locust import User\nclass RbdWorkload(User):\n    pass\nclass TestScenario(RbdWorkload):\n    pass")
 
         args = parse_args(
             [
@@ -326,8 +328,9 @@ class TestSetEnvironmentVariables:
         """Test empty scenario config by default."""
         workload_config = tmp_path / "s3_config.yaml"
         workload_config.write_text("test: config")
-        locustfile = tmp_path / "scenario.py"
-        locustfile.write_text("# test")
+        locustfile = tmp_path / "s3_scenario.py"
+        # Create a proper scenario file with S3Workload class
+        locustfile.write_text("from locust import User\nclass S3Workload(User):\n    pass\nclass TestScenario(S3Workload):\n    pass")
 
         args = parse_args(
             ["--workload-config", str(workload_config), "-f", str(locustfile)]

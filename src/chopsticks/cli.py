@@ -175,6 +175,45 @@ def build_locust_command(args: argparse.Namespace) -> tuple[List[str], str]:
     return cmd, run_dir
 
 
+def detect_workload_type_from_locustfile(locustfile_path: str) -> str:
+    """
+    Detect workload type by inspecting the scenario file's base class.
+    
+    Args:
+        locustfile_path: Path to the locustfile
+        
+    Returns:
+        Workload type (e.g., 's3', 'rbd') in lowercase
+    """
+    import ast
+    import re
+    
+    try:
+        with open(locustfile_path, 'r') as f:
+            tree = ast.parse(f.read())
+        
+        # Find class definitions that inherit from a workload class
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                for base in node.bases:
+                    # Check if base class name contains "Workload"
+                    if isinstance(base, ast.Name) and "Workload" in base.id:
+                        # Extract workload type from class name (e.g., S3Workload -> s3)
+                        match = re.match(r'([A-Z][a-z0-9]+)Workload', base.id)
+                        if match:
+                            return match.group(1).lower()
+                    # Handle attribute access like workloads.s3.S3Workload
+                    elif isinstance(base, ast.Attribute) and "Workload" in base.attr:
+                        match = re.match(r'([A-Z][a-z0-9]+)Workload', base.attr)
+                        if match:
+                            return match.group(1).lower()
+    except Exception:
+        pass
+    
+    # Fallback: default to s3
+    return "s3"
+
+
 def set_environment_variables(args: argparse.Namespace) -> None:
     """
     Set environment variables for config paths.
@@ -187,11 +226,11 @@ def set_environment_variables(args: argparse.Namespace) -> None:
     # Set generic config path
     os.environ["CHOPSTICKS_WORKLOAD_CONFIG"] = str(workload_config_path)
 
-    # Set workload-specific config path (e.g., S3_CONFIG_PATH for s3_config.yaml)
-    config_name = workload_config_path.stem
-    if config_name.endswith("_config"):
-        workload_type = config_name.replace("_config", "").upper()
-        os.environ[f"{workload_type}_CONFIG_PATH"] = str(workload_config_path)
+    # Detect workload type from scenario file's base class
+    workload_type = detect_workload_type_from_locustfile(args.locustfile).upper()
+    
+    # Set workload-specific config path (e.g., S3_CONFIG_PATH)
+    os.environ[f"{workload_type}_CONFIG_PATH"] = str(workload_config_path)
 
     # Set scenario config path (empty string if not provided)
     if args.scenario_config:
