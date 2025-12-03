@@ -11,7 +11,7 @@ class PrometheusExporter:
 
     def __init__(self, namespace: str = "chopsticks"):
         self.namespace = namespace
-        self.metrics = defaultdict(list)
+        self.metrics: dict[str, list[tuple[float, dict[str, str]]]] = defaultdict(list)
 
     def add_operation_metric(self, metric: OperationMetric):
         """Add an operation metric for export"""
@@ -148,7 +148,7 @@ class PrometheusExporter:
         lines = [f"# HELP {full_name} {help_text}", f"# TYPE {full_name} counter"]
 
         # Sum values by label set
-        by_labels = defaultdict(int)
+        by_labels: dict[str, int] = defaultdict(int)
         for value, labels in values:
             label_str = self._format_labels(labels)
             by_labels[label_str] += value

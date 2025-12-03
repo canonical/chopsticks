@@ -51,13 +51,16 @@ class S3LargeObjectTest(S3Workload):
 
         data = self.client.download(key)
 
-        if data:
-            # Verify size
-            if len(data) != self.object_size_bytes:
-                raise Exception(
-                    f"Downloaded object size mismatch: expected {self.object_size_bytes}, "
-                    f"got {len(data)}"
-                )
+        # Verify download was successful
+        if data is None:
+            raise Exception(f"Download failed for key: {key}")
+
+        # Verify size
+        if len(data) != self.object_size_bytes:
+            raise Exception(
+                f"Downloaded object size mismatch: expected {self.object_size_bytes}, "
+                f"got {len(data)}"
+            )
 
     @task(1)
     def delete_large_object(self):

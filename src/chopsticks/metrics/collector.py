@@ -37,7 +37,7 @@ class MetricsCollector:
         self.error_metrics: List[ErrorMetric] = []
 
         self._window_start = datetime.utcnow()
-        self._current_window_metrics = []
+        self._current_window_metrics: list[OperationMetric] = []
 
     def record_operation(self, metric: OperationMetric):
         """Record a single operation metric"""
@@ -58,10 +58,10 @@ class MetricsCollector:
         """Record an error"""
         self.error_metrics.append(metric)
 
-    def _aggregate_current_window(self) -> Optional[AggregatedMetrics]:
+    def _aggregate_current_window(self) -> List[AggregatedMetrics]:
         """Aggregate metrics for current time window"""
         if not self._current_window_metrics:
-            return None
+            return []
 
         # Group by operation type
         by_operation = defaultdict(list)
@@ -115,7 +115,7 @@ class MetricsCollector:
                 "min": min(sizes),
                 "max": max(sizes),
                 "mean": statistics.mean(sizes),
-                "total": sum(sizes),
+                "total": float(sum(sizes)),
             },
             request_rate={
                 "rps": len(metrics) / self.aggregation_window,
@@ -228,7 +228,7 @@ class MetricsCollector:
 
     def _group_errors_by_category(self) -> Dict[str, int]:
         """Group errors by category"""
-        categories = defaultdict(int)
+        categories: dict[str, int] = defaultdict(int)
         for error in self.error_metrics:
             categories[error.error_category.value] += 1
         return dict(categories)
