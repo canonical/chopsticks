@@ -1,0 +1,26 @@
+# S3 Mixed Workload Scenario Configuration
+
+# S3 endpoint configuration
+s3:
+  endpoint: "http://localhost:80"
+  access_key: "test-access-key"
+  secret_key: "test-secret-key"
+  region: "default"
+  bucket: "chopsticks-mixed-test"
+
+# Scenario configuration
+scenario:
+  name: "s3_mixed_workload"
+  locustfile: "src/chopsticks/scenarios/s3/mixed_workload.py"
+  
+# Load configuration
+load:
+  users: 15
+  spawn_rate: 3
+  duration: "10m"
+
+# Metrics configuration
+metrics:
+  enabled: true
+  prometheus_port: 9090
+  export_interval: 10

@@ -1,0 +1,26 @@
+# S3 Small Objects Scenario Configuration
+
+# S3 endpoint configuration
+s3:
+  endpoint: "http://localhost:80"
+  access_key: "test-access-key"
+  secret_key: "test-secret-key"
+  region: "default"
+  bucket: "chopsticks-small-test"
+
+# Scenario configuration
+scenario:
+  name: "s3_small_objects"
+  locustfile: "src/chopsticks/scenarios/s3/small_objects.py"
+  
+# Load configuration
+load:
+  users: 20
+  spawn_rate: 5
+  duration: "10m"
+
+# Metrics configuration
+metrics:
+  enabled: true
+  prometheus_port: 9090
+  export_interval: 10

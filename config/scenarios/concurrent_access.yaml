@@ -1,0 +1,26 @@
+# S3 Concurrent Access Scenario Configuration
+
+# S3 endpoint configuration
+s3:
+  endpoint: "http://localhost:80"
+  access_key: "test-access-key"
+  secret_key: "test-secret-key"
+  region: "default"
+  bucket: "chopsticks-concurrent-test"
+
+# Scenario configuration
+scenario:
+  name: "s3_concurrent_access"
+  locustfile: "src/chopsticks/scenarios/s3/concurrent_access.py"
+  
+# Load configuration
+load:
+  users: 50
+  spawn_rate: 10
+  duration: "10m"
+
+# Metrics configuration
+metrics:
+  enabled: true
+  prometheus_port: 9090
+  export_interval: 10
