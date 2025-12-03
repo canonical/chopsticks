@@ -457,3 +457,277 @@ uv run chopsticks --config config/[scenario]_prod.yaml --duration 10m
 - Scenario selection matrix
 - Automated regression detection
 - Performance baseline tracking
+
+## 6. Multipart Upload Scenario
+**Purpose**: Test large file uploads using multipart upload functionality.
+
+**Test Pattern**:
+- Upload files using multipart upload (5MB parts)
+- Test different part sizes and file sizes
+- Verify upload completion and integrity
+
+**Key Metrics**:
+- Multipart upload success rate
+- Part upload latency
+- Complete multipart operation time
+- Bandwidth utilization
+
+**Configuration**:
+```yaml
+scenario: multipart_upload
+file_sizes:
+  - 100MB
+  - 500MB
+  - 1GB
+part_size: 5MB
+concurrent_uploads: 10
+```
+
+## 7. Versioning Operations Scenario
+**Purpose**: Test S3 versioning capabilities and object version management.
+
+**Test Pattern**:
+- Enable versioning on buckets
+- Create multiple versions of same objects
+- List and retrieve specific versions
+- Delete specific versions
+
+**Key Metrics**:
+- Version creation rate
+- Version retrieval latency
+- List versions operation time
+- Storage overhead
+
+**Configuration**:
+```yaml
+scenario: versioning_ops
+objects_per_key: 10  # versions
+operations:
+  - put: 60%
+  - get_version: 20%
+  - list_versions: 15%
+  - delete_version: 5%
+```
+
+## 8. Lifecycle and Expiration Scenario
+**Purpose**: Test object lifecycle policies and expiration rules.
+
+**Test Pattern**:
+- Set lifecycle policies on buckets
+- Create objects with expiration tags
+- Verify policy application
+- Monitor object transitions
+
+**Key Metrics**:
+- Policy application success rate
+- Transition operation latency
+- Expiration accuracy
+
+**Configuration**:
+```yaml
+scenario: lifecycle_ops
+policies:
+  - transition_after_days: 7
+  - expire_after_days: 30
+object_count: 10000
+```
+
+## 9. Metadata Operations Scenario
+**Purpose**: Stress test object metadata operations (tags, ACLs, metadata headers).
+
+**Test Pattern**:
+- Set/get object tags
+- Modify object ACLs
+- Update custom metadata
+- Query objects by metadata
+
+**Key Metrics**:
+- Metadata operation latency
+- Tag query performance
+- ACL modification success rate
+
+**Configuration**:
+```yaml
+scenario: metadata_ops
+operations:
+  - put_tags: 30%
+  - get_tags: 30%
+  - put_acl: 20%
+  - get_acl: 20%
+tags_per_object: 10
+```
+
+## 10. Bucket Operations Scenario
+**Purpose**: Test bucket-level operations at scale.
+
+**Test Pattern**:
+- Create/delete buckets
+- List bucket contents
+- Set bucket policies
+- Configure bucket properties
+
+**Key Metrics**:
+- Bucket creation/deletion rate
+- List operation latency with varying object counts
+- Policy application time
+
+**Configuration**:
+```yaml
+scenario: bucket_ops
+bucket_count: 100
+objects_per_bucket: 1000
+operations:
+  - create_bucket: 10%
+  - delete_bucket: 10%
+  - list_objects: 50%
+  - put_policy: 20%
+  - get_policy: 10%
+```
+
+## 11. Stress and Spike Scenario
+**Purpose**: Test cluster behavior under sudden load spikes and sustained stress.
+
+**Test Pattern**:
+- Gradual ramp-up to baseline load
+- Sudden spike to 10x load
+- Sustained high load period
+- Gradual ramp-down
+
+**Key Metrics**:
+- Error rate during spikes
+- Recovery time after spike
+- Throughput degradation
+- Latency percentiles (p95, p99)
+
+**Configuration**:
+```yaml
+scenario: stress_spike
+baseline_users: 10
+spike_users: 100
+spike_duration: 2min
+sustained_duration: 5min
+ramp_time: 1min
+```
+
+## 12. Data Integrity Verification Scenario
+**Purpose**: Verify data integrity across operations.
+
+**Test Pattern**:
+- Upload objects with checksums
+- Download and verify checksums
+- Perform corruption detection
+- Test ETag validation
+
+**Key Metrics**:
+- Checksum verification success rate
+- Data corruption incidents
+- ETag mismatch count
+
+**Configuration**:
+```yaml
+scenario: data_integrity
+checksum_algorithm: sha256
+verification_sample_rate: 100%
+object_sizes: [1KB, 1MB, 10MB, 100MB]
+```
+
+## 13. Cross-Region Replication Scenario (if applicable)
+**Purpose**: Test replication performance and consistency.
+
+**Test Pattern**:
+- Configure bucket replication
+- Upload objects to source bucket
+- Verify replication to target
+- Measure replication lag
+
+**Key Metrics**:
+- Replication lag time
+- Replication success rate
+- Bandwidth consumption
+
+**Configuration**:
+```yaml
+scenario: replication
+source_region: us-east-1
+target_region: us-west-2
+object_count: 10000
+verify_consistency: true
+```
+
+## 14. Error and Retry Scenario
+**Purpose**: Test error handling and retry mechanisms.
+
+**Test Pattern**:
+- Simulate network failures
+- Test with invalid credentials
+- Exceed rate limits
+- Handle partial failures
+
+**Key Metrics**:
+- Retry success rate
+- Error recovery time
+- Graceful degradation
+
+**Configuration**:
+```yaml
+scenario: error_handling
+error_injection_rate: 5%
+retry_policy:
+  max_attempts: 3
+  backoff: exponential
+```
+
+## Implementation Priority
+
+Recommended implementation order based on common use cases:
+
+1. **Phase 1** (Essential):
+   - Large Object Test ✅ (Already implemented)
+   - Mixed Workload
+   - Concurrent Read/Write
+
+2. **Phase 2** (Common Use Cases):
+   - Small Object Test
+   - Metadata Operations
+   - Bucket Operations
+
+3. **Phase 3** (Advanced):
+   - Multipart Upload
+   - Versioning Operations
+   - Stress and Spike
+
+4. **Phase 4** (Specialized):
+   - Data Integrity Verification
+   - Lifecycle Operations
+   - Error and Retry
+   - Cross-Region Replication (if applicable)
+
+## Extensibility Guidelines
+
+When adding new scenarios:
+
+1. Create a new scenario file in `src/chopsticks/scenarios/s3/`
+2. Inherit from `BaseS3Scenario`
+3. Implement required task methods
+4. Add scenario configuration to `config/scenarios/`
+5. Update documentation
+6. Add unit tests
+7. Add functional tests if needed
+
+Example structure:
+```python
+from chopsticks.scenarios.s3.base import BaseS3Scenario
+
+class MyCustomScenario(BaseS3Scenario):
+    """Description of scenario."""
+    
+    @task(weight=70)
+    def primary_operation(self):
+        """Main operation."""
+        pass
+    
+    @task(weight=30)
+    def secondary_operation(self):
+        """Secondary operation."""
+        pass
+```
