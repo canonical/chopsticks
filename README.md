@@ -61,12 +61,16 @@ driver: s5cmd
 
 ### Available S3 Test Scenarios
 
-#### Phase 1: Core Scenarios (Implemented)
+All scenarios run for 10 minutes by default in CI/CD testing to ensure comprehensive validation.
+
+#### Implemented Scenarios
 
 1. **Large Objects** (`s3_large_objects_with_metrics.py`)
    - **Purpose**: Test sequential I/O performance with 10MB+ objects
    - **Use Case**: Backup systems, video storage, archival workloads
    - **Operations**: 60% upload, 30% download, 10% delete
+   - **Test Duration**: 10 minutes
+   - **CI Users**: 3 users, spawn rate 1/sec
    ```bash
    uv run locust -f src/chopsticks/scenarios/s3_large_objects_with_metrics.py --headless -u 10 -r 2 -t 10m
    ```
@@ -75,6 +79,8 @@ driver: s5cmd
    - **Purpose**: High-frequency operations on small objects (1KB-100KB)
    - **Use Case**: IoT data ingestion, log aggregation, microservices cache
    - **Operations**: 70% upload, 20% download, 10% delete
+   - **Test Duration**: 10 minutes
+   - **CI Users**: 20 users, spawn rate 5/sec
    ```bash
    uv run locust -f src/chopsticks/scenarios/s3/small_objects.py --headless -u 20 -r 5 -t 10m
    ```
@@ -82,30 +88,42 @@ driver: s5cmd
 3. **Mixed Workload** (`scenarios/s3/mixed_workload.py`)
    - **Purpose**: Realistic production patterns with varied object sizes
    - **Use Case**: General-purpose object storage, web applications
-   - **Size Distribution**: 60% small, 30% medium, 10% large
+   - **Size Distribution**: 60% small (1KB-100KB), 30% medium (100KB-10MB), 10% large (10MB-100MB)
    - **Operations**: 50% upload, 35% download, 10% list, 5% delete
+   - **Test Duration**: 10 minutes
+   - **CI Users**: 15 users, spawn rate 3/sec
    ```bash
    uv run locust -f src/chopsticks/scenarios/s3/mixed_workload.py --headless -u 15 -r 3 -t 10m
    ```
 
 4. **Concurrent Access** (`scenarios/s3/concurrent_access.py`)
    - **Purpose**: Test concurrency control with shared object access
-   - **Use Case**: Content delivery, shared datasets, CDN origins
-   - **Operations**: 80% read, 10% list, 10% write (read-heavy)
+   - **Use Case**: Content delivery, shared datasets, CDN origins, collaborative platforms
+   - **Pattern**: Pre-populates 100 shared objects, then multiple users access them simultaneously
+   - **Operations**: 80% read (GET), 10% list, 10% write (PUT) - read-heavy workload
+   - **Test Duration**: 10 minutes
+   - **CI Users**: 50 users, spawn rate 10/sec
    ```bash
    uv run locust -f src/chopsticks/scenarios/s3/concurrent_access.py --headless -u 50 -r 10 -t 10m
    ```
 
+#### CI/CD Matrix Testing
+
+All scenarios are tested in parallel on every pull request using a GitHub Actions matrix:
+- Each scenario runs for 10 minutes with scenario-specific user counts
+- Success rate threshold: 95% minimum
+- Minimum operations: 10 per scenario
+- Test artifacts (HTML reports, CSV data, metrics) are retained for 30 days
+
 #### Configuration Files
 
-Each scenario has a corresponding YAML configuration in `config/scenarios/`:
-- `small_objects.yaml` - Small object test configuration
-- `mixed_workload.yaml` - Mixed workload configuration  
-- `concurrent_access.yaml` - Concurrent access configuration
+Configuration files are stored in `config/`:
+- `s3_config.yaml` - S3 endpoint and credentials configuration
+- Environment variables can override config values
 
 #### Future Scenarios
 
-See [SCENARIO_PROPOSALS.md](SCENARIO_PROPOSALS.md) for 12 proposed scenarios including:
+See [SCENARIO_PROPOSALS.md](SCENARIO_PROPOSALS.md) for additional proposed scenarios including:
 - Multipart upload, versioning, lifecycle management
 - Large bucket operations, bandwidth saturation
 - Metadata-only operations, failure injection
@@ -120,11 +138,16 @@ uv run locust -f src/chopsticks/scenarios/s3_large_objects_with_metrics.py
 # Run headless mode with 10 users, spawn rate 2/sec, run for 10 minutes
 uv run locust -f src/chopsticks/scenarios/s3_large_objects_with_metrics.py --headless -u 10 -r 2 -t 10m
 
+# Run any scenario
+uv run locust -f src/chopsticks/scenarios/s3/small_objects.py --headless -u 20 -r 5 -t 10m
+uv run locust -f src/chopsticks/scenarios/s3/mixed_workload.py --headless -u 15 -r 3 -t 10m
+uv run locust -f src/chopsticks/scenarios/s3/concurrent_access.py --headless -u 50 -r 10 -t 10m
+
 # Run distributed (master)
-uv run locust -f src/chopsticks/scenarios/s3_mixed_workload_with_metrics.py --master
+uv run locust -f src/chopsticks/scenarios/s3/mixed_workload.py --master
 
 # Run distributed (worker)
-uv run locust -f src/chopsticks/scenarios/s3_mixed_workload_with_metrics.py --worker --master-host=<master-ip>
+uv run locust -f src/chopsticks/scenarios/s3/mixed_workload.py --worker --master-host=<master-ip>
 ```
 
 ## Metrics Collection

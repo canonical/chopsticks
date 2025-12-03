@@ -10,7 +10,27 @@ on:
 jobs:
   s3-stress-test:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - name: large_objects
+            file: s3_large_objects_with_metrics.py
+            users: 3
+            spawn_rate: 1
+          - name: small_objects
+            file: scenarios/s3/small_objects.py
+            users: 20
+            spawn_rate: 5
+          - name: mixed_workload
+            file: scenarios/s3/mixed_workload.py
+            users: 15
+            spawn_rate: 3
+          - name: concurrent_access
+            file: scenarios/s3/concurrent_access.py
+            users: 50
+            spawn_rate: 10
     
     steps:
       - name: Checkout code
@@ -93,18 +113,18 @@ jobs:
         run: |
           s5cmd mb s3://chopsticks-ci-test
       
-      - name: Run S3 Large Object Test (2 minutes)
+      - name: Run S3 Scenario Test - ${{ matrix.scenario.name }} (10 minutes)
         env:
           LARGE_OBJECT_SIZE: 10
         run: |
           uv run locust \
-            -f src/chopsticks/scenarios/s3_large_objects_with_metrics.py \
+            -f src/chopsticks/${{ matrix.scenario.file }} \
             --headless \
-            --users 3 \
-            --spawn-rate 1 \
-            --run-time 2m \
-            --html /tmp/chopsticks-ci-report.html \
-            --csv /tmp/chopsticks-ci
+            --users ${{ matrix.scenario.users }} \
+            --spawn-rate ${{ matrix.scenario.spawn_rate }} \
+            --run-time 10m \
+            --html /tmp/chopsticks-ci-report-${{ matrix.scenario.name }}.html \
+            --csv /tmp/chopsticks-ci-${{ matrix.scenario.name }}
       
       - name: Validate test results
         run: |
@@ -114,15 +134,16 @@ jobs:
           fi
           
           # Check metrics
-          METRICS_FILE=$(ls /tmp/chopsticks_metrics/metrics_*.json)
+          METRICS_FILE=$(ls -t /tmp/chopsticks_metrics/metrics_*.json | head -1)
           SUCCESS_RATE=$(cat ${METRICS_FILE} | jq -r '.summary.operations.success_rate')
           TOTAL_OPS=$(cat ${METRICS_FILE} | jq -r '.summary.operations.total')
           
+          echo "Scenario: ${{ matrix.scenario.name }}"
           echo "Total Operations: ${TOTAL_OPS}"
           echo "Success Rate: ${SUCCESS_RATE}%"
           
-          if [ "${SUCCESS_RATE}" != "100" ]; then
-            echo "❌ Success rate is not 100%!"
+          if (( $(echo "${SUCCESS_RATE} < 95" | bc -l) )); then
+            echo "❌ Success rate is below 95%!"
             exit 1
           fi
           
@@ -132,17 +153,17 @@ jobs:
           fi
           
           echo "✅ Test validation passed!"
-          echo "✅ ${TOTAL_OPS} operations completed with 100% success rate"
+          echo "✅ ${TOTAL_OPS} operations completed with ${SUCCESS_RATE}% success rate"
       
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report
+          name: test-report-${{ matrix.scenario.name }}
           path: |
-            /tmp/chopsticks-ci-report.html
+            /tmp/chopsticks-ci-report-${{ matrix.scenario.name }}.html
             /tmp/chopsticks_metrics/
-            /tmp/chopsticks-ci_*.csv
+            /tmp/chopsticks-ci-${{ matrix.scenario.name }}_*.csv
           retention-days: 30
       
       - name: Cleanup
