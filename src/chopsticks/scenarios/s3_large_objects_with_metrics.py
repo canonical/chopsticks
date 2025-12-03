@@ -211,6 +211,21 @@ class S3LargeObjectsWithMetrics(S3Workload):
         try:
             data = self.client.download(key)
             end_time = datetime.utcnow()
+            
+            # Check if download was successful
+            if data is None:
+                self._record_metric(
+                    OperationType.DOWNLOAD,
+                    key,
+                    0,
+                    start_time,
+                    end_time,
+                    False,
+                    error_code="DownloadFailed",
+                    error_msg="Download returned None",
+                )
+                raise Exception("Download failed: returned None")
+            
             self._record_metric(
                 OperationType.DOWNLOAD, key, len(data), start_time, end_time, True
             )
@@ -222,16 +237,18 @@ class S3LargeObjectsWithMetrics(S3Workload):
                 )
         except Exception as e:
             end_time = datetime.utcnow()
-            self._record_metric(
-                OperationType.DOWNLOAD,
-                key,
-                self.object_size,
-                start_time,
-                end_time,
-                False,
-                error_code=type(e).__name__,
-                error_msg=str(e),
-            )
+            # Only record metric if not already recorded
+            if data is not None or "Download failed" not in str(e):
+                self._record_metric(
+                    OperationType.DOWNLOAD,
+                    key,
+                    0,
+                    start_time,
+                    end_time,
+                    False,
+                    error_code=type(e).__name__,
+                    error_msg=str(e),
+                )
             raise
 
     @task(1)

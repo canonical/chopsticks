@@ -65,8 +65,12 @@ class ExampleS3Scenario(S3Workload):
         # Download (automatically tracked by Locust)
         data = self.client.download(key)
 
-        # Optional: Verify download
-        if data and len(data) != self.object_size_bytes:
+        # Verify download was successful
+        if data is None:
+            raise Exception(f"Download failed for key: {key}")
+        
+        # Verify download size
+        if len(data) != self.object_size_bytes:
             raise Exception(
                 f"Size mismatch: expected {self.object_size_bytes}, got {len(data)}"
             )
