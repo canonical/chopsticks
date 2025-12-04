@@ -13,13 +13,13 @@ from chopsticks.metrics import (
     OperationType,
     WorkloadType,
 )
-from chopsticks.metrics.http_server import MetricsHTTPServer
+from chopsticks.metrics.ipc import MetricsIPCClient
 
 
 # Global metrics instances (shared across all workload instances)
-_metrics_server: Optional[MetricsHTTPServer] = None
 _metrics_collector: Optional[MetricsCollector] = None
 _test_config: Optional[TestConfiguration] = None
+_metrics_ipc_client: Optional[MetricsIPCClient] = None
 _metrics_enabled = False
 
 
@@ -98,7 +98,7 @@ def get_metrics_config(workload_config: dict) -> dict:
 @events.init.add_listener
 def on_locust_init(environment, **kwargs):
     """Initialize metrics collection when Locust starts"""
-    global _metrics_server, _metrics_collector, _test_config, _metrics_enabled
+    global _metrics_collector, _test_config, _metrics_ipc_client, _metrics_enabled
 
     # Load workload config to check metrics settings
     workload_config = load_workload_config()
@@ -123,37 +123,44 @@ def on_locust_init(environment, **kwargs):
         },
     )
 
-    # Initialize metrics collector
+    # Initialize metrics collector (for local JSON/CSV export)
     _metrics_collector = MetricsCollector(
         test_run_id=_test_config.test_run_id,
         test_config=_test_config,
         aggregation_window_seconds=config["aggregation_window"],
     )
 
-    # Start metrics HTTP server
-    _metrics_server = MetricsHTTPServer(
-        host=config["http_host"], port=config["http_port"]
-    )
-    _metrics_server.start()
-
-    print(f"\n{'=' * 70}")
-    print("Metrics Collection Enabled")
-    print(f"{'=' * 70}")
-    print(f"Test Run ID: {_test_config.test_run_id}")
-    print(
-        f"Metrics Endpoint: http://{config['http_host']}:{config['http_port']}/metrics"
-    )
-    print(f"Export Directory: {config['export_dir']}")
-    print(f"{'=' * 70}\n")
+    # Initialize IPC client to send metrics to persistent server
+    _metrics_ipc_client = MetricsIPCClient()
+    if _metrics_ipc_client.connect():
+        print(f"\n{'=' * 70}")
+        print("Metrics Collection Enabled")
+        print(f"{'=' * 70}")
+        print(f"Test Run ID: {_test_config.test_run_id}")
+        print(f"Export Directory: {config['export_dir']}")
+        print(f"Connected to persistent metrics server")
+        print(f"{'=' * 70}\n")
+    else:
+        print(f"\n{'=' * 70}")
+        print("Metrics Collection Enabled (WARNING: No persistent server)")
+        print(f"{'=' * 70}")
+        print(f"Test Run ID: {_test_config.test_run_id}")
+        print(f"Export Directory: {config['export_dir']}")
+        print(f"Real-time metrics unavailable - only end-of-test export")
+        print(f"{'=' * 70}\n")
 
 
 @events.quitting.add_listener
 def on_locust_quit(environment, **kwargs):
     """Export metrics when Locust quits"""
-    global _metrics_server, _metrics_collector, _test_config, _metrics_enabled
+    global _metrics_collector, _test_config, _metrics_ipc_client, _metrics_enabled
 
     if not _metrics_enabled or not _metrics_collector:
         return
+
+    # Close IPC client
+    if _metrics_ipc_client:
+        _metrics_ipc_client.close()
 
     # Reload config for export directory
     workload_config = load_workload_config()
@@ -184,9 +191,6 @@ def on_locust_quit(environment, **kwargs):
     print(f"Metrics exported to: {output_dir}")
     print(f"{'=' * 70}\n")
 
-    if _metrics_server:
-        _metrics_server.stop()
-
 
 class BaseMetricsWorkload:
     """Mixin class for workloads with metrics collection support"""
@@ -196,10 +200,6 @@ class BaseMetricsWorkload:
     def get_metrics_collector(self) -> Optional[MetricsCollector]:
         """Get the global metrics collector instance"""
         return _metrics_collector if _metrics_enabled else None
-
-    def get_metrics_server(self) -> Optional[MetricsHTTPServer]:
-        """Get the global metrics HTTP server instance"""
-        return _metrics_server if _metrics_enabled else None
 
     def record_operation_metric(
         self,
@@ -245,13 +245,13 @@ class BaseMetricsWorkload:
             metadata=metadata or {},
         )
 
-        # Record to collector
+        # Record to local collector (for JSON/CSV export at end)
         if _metrics_collector:
             _metrics_collector.record_operation(metric)
 
-        # Record to Prometheus exporter
-        if _metrics_server:
-            _metrics_server.get_exporter().add_operation_metric(metric)
+        # Send to persistent server via IPC
+        if _metrics_ipc_client:
+            _metrics_ipc_client.send_metric(metric)
 
     def _record_metric(
         self,

@@ -31,13 +31,22 @@ def cmd_metrics_start(args) -> int:
         daemon = MetricsDaemon(metrics_config)
 
         if daemon.is_running():
-            print("WARNING: Metrics server already running")
-            status = daemon.get_status()
-            print(f"         PID: {status['pid']}")
-            print(
-                f"         Endpoint: http://{status['host']}:{status['port']}/metrics"
-            )
-            return 0
+            if args.force:
+                print("WARNING: Metrics server already running, stopping it (--force)")
+                daemon.stop()
+            else:
+                print("WARNING: Metrics server already running")
+                status = daemon.get_status()
+                print(f"         PID: {status['pid']}")
+                print(
+                    f"         Endpoint: http://{status['host']}:{status['port']}/metrics"
+                )
+                print("         Use --force to stop and restart")
+                return 0
+        
+        # Clean up stale files if --force
+        if args.force:
+            daemon.cleanup_stale_files()
 
         daemon.start()
 

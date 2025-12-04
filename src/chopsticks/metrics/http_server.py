@@ -3,8 +3,12 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 from typing import Optional
+import time
 
 from .prometheus_exporter import PrometheusExporter
+from .ipc import MetricsIPCServer
+from .models import OperationMetric, OperationType, WorkloadType
+from datetime import datetime
 
 
 class MetricsHandler(BaseHTTPRequestHandler):
@@ -48,36 +52,66 @@ class MetricsHandler(BaseHTTPRequestHandler):
 
 
 class MetricsHTTPServer:
-    """HTTP server for Prometheus metrics"""
+    """HTTP server for Prometheus metrics (persistent mode with IPC)"""
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 9090):
+    def __init__(self, host: str = "0.0.0.0", port: int = 9090, socket_path: str = "/tmp/chopsticks_metrics.sock"):
         self.host = host
         self.port = port
+        self.socket_path = socket_path
         self.exporter = PrometheusExporter()
         self.server: Optional[HTTPServer] = None
-        self.thread: Optional[threading.Thread] = None
+        self.ipc_server: Optional[MetricsIPCServer] = None
+        self._ipc_thread: Optional[threading.Thread] = None
+        self._running = False
+
+    def _on_metric_received(self, metric_data: dict):
+        """Callback when a metric is received via IPC"""
+        try:
+            # Reconstruct OperationMetric from dict
+            metric_data["timestamp_start"] = datetime.fromisoformat(metric_data["timestamp_start"])
+            metric_data["timestamp_end"] = datetime.fromisoformat(metric_data["timestamp_end"])
+            metric_data["operation_type"] = OperationType(metric_data["operation_type"])
+            metric_data["workload_type"] = WorkloadType(metric_data["workload_type"])
+            
+            metric = OperationMetric(**metric_data)
+            self.exporter.add_operation_metric(metric)
+        except Exception as e:
+            print(f"Error reconstructing metric: {e}", flush=True)
+
+    def _ipc_loop(self):
+        """Background thread for handling IPC connections"""
+        while self._running:
+            self.ipc_server.accept_connections()
+            time.sleep(0.01)
 
     def start(self):
-        """Start the HTTP server in a background thread (ephemeral mode)"""
+        """Start the HTTP server and IPC server"""
         MetricsHandler.exporter = self.exporter
-        self.server = HTTPServer((self.host, self.port), MetricsHandler)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        print(f"Metrics server started at http://{self.host}:{self.port}/metrics")
-
-    def start_persistent(self):
-        """Start the HTTP server in persistent/blocking mode (for daemon)"""
-        MetricsHandler.exporter = self.exporter
+        
+        # Start IPC server
+        self.ipc_server = MetricsIPCServer(self.socket_path, self._on_metric_received)
+        self.ipc_server.start()
+        
+        # Start IPC handling thread
+        self._running = True
+        self._ipc_thread = threading.Thread(target=self._ipc_loop, daemon=True)
+        self._ipc_thread.start()
+        
+        # Start HTTP server (blocking)
         self.server = HTTPServer((self.host, self.port), MetricsHandler)
         print(
             f"Metrics server listening on http://{self.host}:{self.port}/metrics",
             flush=True,
         )
-        # This blocks - run in main thread for daemon
         self.server.serve_forever()
 
     def stop(self):
-        """Stop the HTTP server"""
+        """Stop the HTTP server and IPC server"""
+        self._running = False
+        
+        if self.ipc_server:
+            self.ipc_server.stop()
+        
         if self.server:
             self.server.shutdown()
             self.server.server_close()

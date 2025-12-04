@@ -23,6 +23,7 @@ class MetricsDaemon:
         self.state_file = Path(
             persistent_config.get("state_file", "/tmp/chopsticks_metrics_state.json")
         )
+        self.socket_path = persistent_config.get("socket_path", "/tmp/chopsticks_metrics.sock")
 
         self.host = config.get("http_host", "0.0.0.0")
         self.port = config.get("http_port", 8090)
@@ -43,6 +44,8 @@ class MetricsDaemon:
             str(self.host),
             "--port",
             str(self.port),
+            "--socket-path",
+            str(self.socket_path),
             "--state-file",
             str(self.state_file),
         ]
@@ -110,6 +113,31 @@ class MetricsDaemon:
             # Clean up stale PID file
             self.pid_file.unlink(missing_ok=True)
             return False
+    
+    def cleanup_stale_files(self):
+        """Clean up stale PID, state, and socket files"""
+        from pathlib import Path
+        
+        # Remove PID file if it exists and process is not running
+        if self.pid_file.exists():
+            try:
+                pid = int(self.pid_file.read_text())
+                try:
+                    os.kill(pid, 0)
+                    # Process exists, don't clean
+                    return
+                except OSError:
+                    # Process doesn't exist, clean up
+                    self.pid_file.unlink(missing_ok=True)
+            except (ValueError, OSError):
+                self.pid_file.unlink(missing_ok=True)
+        
+        # Remove state file
+        self.state_file.unlink(missing_ok=True)
+        
+        # Remove socket file
+        socket_path = Path(self.socket_path)
+        socket_path.unlink(missing_ok=True)
 
     def get_status(self) -> Dict[str, Any]:
         """Get current server status"""

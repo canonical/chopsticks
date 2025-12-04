@@ -14,12 +14,15 @@ def main():
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8090, help="Port to bind to")
     parser.add_argument(
+        "--socket-path", default="/tmp/chopsticks_metrics.sock", help="Unix socket path for IPC"
+    )
+    parser.add_argument(
         "--state-file", type=Path, required=True, help="Path to state file"
     )
     args = parser.parse_args()
 
     # Create and start server
-    server = MetricsHTTPServer(host=args.host, port=args.port)
+    server = MetricsHTTPServer(host=args.host, port=args.port, socket_path=args.socket_path)
 
     # Handle shutdown signals
     def signal_handler(sig, frame):
@@ -31,7 +34,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
 
     # Start server (this blocks)
-    server.start_persistent()
+    server.start()
 
 
 if __name__ == "__main__":
