@@ -58,12 +58,23 @@ class MetricsHTTPServer:
         self.thread: Optional[threading.Thread] = None
 
     def start(self):
-        """Start the HTTP server in a background thread"""
+        """Start the HTTP server in a background thread (ephemeral mode)"""
         MetricsHandler.exporter = self.exporter
         self.server = HTTPServer((self.host, self.port), MetricsHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         print(f"Metrics server started at http://{self.host}:{self.port}/metrics")
+
+    def start_persistent(self):
+        """Start the HTTP server in persistent/blocking mode (for daemon)"""
+        MetricsHandler.exporter = self.exporter
+        self.server = HTTPServer((self.host, self.port), MetricsHandler)
+        print(
+            f"Metrics server listening on http://{self.host}:{self.port}/metrics",
+            flush=True,
+        )
+        # This blocks - run in main thread for daemon
+        self.server.serve_forever()
 
     def stop(self):
         """Stop the HTTP server"""
