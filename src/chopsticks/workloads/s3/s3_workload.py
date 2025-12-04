@@ -5,7 +5,10 @@ from typing import Optional, Dict
 
 from chopsticks.drivers.s3.base import BaseS3Driver
 from chopsticks.drivers.s3.s5cmd_driver import S5cmdDriver
+from chopsticks.drivers.s3.dummy_driver import DummyDriver
 from chopsticks.utils.config_loader import load_config, get_config_path
+from chopsticks.workloads.base_metrics_workload import BaseMetricsWorkload
+from chopsticks.metrics import WorkloadType
 
 
 class S3Client:
@@ -143,10 +146,11 @@ class S3Client:
         return metadata
 
 
-class S3Workload(User):
-    """Base S3 workload for Locust tests"""
+class S3Workload(User, BaseMetricsWorkload):
+    """Base S3 workload for Locust tests with optional metrics collection"""
 
     abstract = True
+    workload_type = WorkloadType.S3
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -166,8 +170,8 @@ class S3Workload(User):
                 )
 
         # Initialize driver
-        driver_name = self.config.get("driver", "s5cmd")
-        driver = self._get_driver(driver_name)
+        self.driver_name = self.config.get("driver", "s5cmd")
+        driver = self._get_driver(self.driver_name)
 
         # Create client
         self.client = S3Client(driver)
@@ -177,6 +181,7 @@ class S3Workload(User):
         """Get driver instance by name"""
         drivers = {
             "s5cmd": S5cmdDriver,
+            "dummy": DummyDriver,
         }
 
         driver_class = drivers.get(driver_name)

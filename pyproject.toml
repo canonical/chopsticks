@@ -13,6 +13,9 @@ dependencies = [
     "boto3>=1.34.0",
 ]
 
+[project.scripts]
+chopsticks = "chopsticks.cli:main"
+
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]
 build-backend = "uv_build"
