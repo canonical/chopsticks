@@ -77,7 +77,9 @@ def create_parser() -> argparse.ArgumentParser:
         "--config", required=True, help="Path to workload config file"
     )
     start_parser.add_argument(
-        "--force", action="store_true", help="Force cleanup of stale processes and files"
+        "--force",
+        action="store_true",
+        help="Force cleanup of stale processes and files",
     )
 
     # metrics stop

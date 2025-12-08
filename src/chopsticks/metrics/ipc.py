@@ -22,7 +22,7 @@ class MetricsIPCClient:
         try:
             if not Path(self.socket_path).exists():
                 return False
-            
+
             self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             self._socket.connect(self.socket_path)
             self._socket.settimeout(1.0)
@@ -51,7 +51,7 @@ class MetricsIPCClient:
         if self._socket:
             try:
                 self._socket.close()
-            except:
+            except OSError:
                 pass
             self._socket = None
 
@@ -103,7 +103,7 @@ class MetricsIPCServer:
                     break
 
                 buffer += data.decode("utf-8")
-                
+
                 # Process complete messages (newline-delimited)
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
@@ -130,6 +130,6 @@ class MetricsIPCServer:
         if self._socket:
             self._socket.close()
             self._socket = None
-        
+
         if Path(self.socket_path).exists():
             os.unlink(self.socket_path)

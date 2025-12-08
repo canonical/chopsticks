@@ -43,7 +43,7 @@ def cmd_metrics_start(args) -> int:
                 )
                 print("         Use --force to stop and restart")
                 return 0
-        
+
         # Clean up stale files if --force
         if args.force:
             daemon.cleanup_stale_files()

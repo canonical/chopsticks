@@ -117,9 +117,11 @@ def on_locust_init(environment, **kwargs):
         scenario=os.environ.get("CHOPSTICKS_SCENARIO", "unknown"),
         workload_type=WorkloadType.S3,  # Will be overridden by specific workload
         test_config={
-            "users": environment.parsed_options.num_users
-            if hasattr(environment, "parsed_options")
-            else 1,
+            "users": (
+                environment.parsed_options.num_users
+                if hasattr(environment, "parsed_options")
+                else 1
+            ),
         },
     )
 
@@ -138,7 +140,7 @@ def on_locust_init(environment, **kwargs):
         print(f"{'=' * 70}")
         print(f"Test Run ID: {_test_config.test_run_id}")
         print(f"Export Directory: {config['export_dir']}")
-        print(f"Connected to persistent metrics server")
+        print("Connected to persistent metrics server")
         print(f"{'=' * 70}\n")
     else:
         print(f"\n{'=' * 70}")
@@ -146,7 +148,7 @@ def on_locust_init(environment, **kwargs):
         print(f"{'=' * 70}")
         print(f"Test Run ID: {_test_config.test_run_id}")
         print(f"Export Directory: {config['export_dir']}")
-        print(f"Real-time metrics unavailable - only end-of-test export")
+        print("Real-time metrics unavailable - only end-of-test export")
         print(f"{'=' * 70}\n")
 
 
