@@ -50,6 +50,25 @@ def load_workload_config() -> dict:
     return {}
 
 
+def _create_metrics_export_dir(base_dir: str, test_run_id: str) -> str:
+    """
+    Create a timestamped subdirectory for metrics export.
+
+    Args:
+        base_dir: Base directory for metrics (from config or default to cwd)
+        test_run_id: UUID for this test run
+
+    Returns:
+        Full path to the export directory
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Create subdirectory: <base_dir>/chopsticks_<timestamp>_<short_uuid>
+    short_uuid = test_run_id.split("-")[0]
+    subdir_name = f"chopsticks_{timestamp}_{short_uuid}"
+    export_dir = os.path.join(base_dir, subdir_name)
+    return export_dir
+
+
 def get_metrics_config(workload_config: dict) -> dict:
     """
     Get metrics configuration from workload config file.
@@ -87,7 +106,7 @@ def get_metrics_config(workload_config: dict) -> dict:
         ),
         "export_dir": metrics_section.get(
             "export_dir",
-            os.environ.get("CHOPSTICKS_RUN_DIR", "/tmp/chopsticks_metrics"),
+            os.environ.get("CHOPSTICKS_RUN_DIR", os.getcwd()),
         ),
         "test_name": metrics_section.get(
             "test_name", os.environ.get("CHOPSTICKS_TEST_NAME", "Chopsticks Load Test")
@@ -110,8 +129,9 @@ def on_locust_init(environment, **kwargs):
         return
 
     # Create test configuration
+    test_run_id = str(uuid.uuid4())
     _test_config = TestConfiguration(
-        test_run_id=str(uuid.uuid4()),
+        test_run_id=test_run_id,
         test_name=config["test_name"],
         start_time=datetime.utcnow(),
         scenario=os.environ.get("CHOPSTICKS_SCENARIO", "unknown"),
@@ -124,6 +144,16 @@ def on_locust_init(environment, **kwargs):
             ),
         },
     )
+
+    # Create export directory with timestamp subdirectory
+    # Only create subdirectory if export_dir is not already set by run command
+    base_export_dir = config["export_dir"]
+    if os.environ.get("CHOPSTICKS_RUN_DIR"):
+        # Run command already created a timestamped directory, use it directly
+        config["export_dir"] = base_export_dir
+    else:
+        # Create our own timestamped subdirectory
+        config["export_dir"] = _create_metrics_export_dir(base_export_dir, test_run_id)
 
     # Initialize metrics collector (for local JSON/CSV export)
     _metrics_collector = MetricsCollector(
