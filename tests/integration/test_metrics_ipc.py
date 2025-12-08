@@ -75,38 +75,54 @@ def test_metrics_ipc_with_persistent_server():
             text=True,
             timeout=15,
         )
-        
+
         print(f"Metrics start output: {result.stdout}")
         print(f"Metrics start stderr: {result.stderr}")
-        
-        assert result.returncode == 0, f"Failed to start metrics server: {result.stderr}"
+
+        assert (
+            result.returncode == 0
+        ), f"Failed to start metrics server: {result.stderr}"
+
+        # Give daemon a moment to fork and write PID file
+        time.sleep(2)
 
         # Wait for metrics server to start (it runs as daemon)
         max_wait = 20
         server_ready = False
-        
+
         pid_file = "/tmp/chopsticks_test_metrics.pid"
         for i in range(max_wait):
             # Check if PID file exists and process is running
             if os.path.exists(pid_file):
+                print(f"Attempt {i}: PID file exists")
                 try:
                     with open(pid_file) as f:
                         pid = int(f.read().strip())
+                    print(f"Attempt {i}: PID = {pid}")
                     # Check if process exists
                     os.kill(pid, 0)  # Signal 0 just checks if process exists
-                    
+                    print(f"Attempt {i}: Process exists")
+
                     # Check if HTTP endpoint is responding
                     response = requests.get("http://localhost:8090/metrics", timeout=1)
+                    print(f"Attempt {i}: HTTP response = {response.status_code}")
                     if response.status_code == 200:
                         server_ready = True
                         metrics_server_process = pid
                         break
-                except (FileNotFoundError, ProcessLookupError, ValueError, requests.RequestException):
-                    pass
+                except (
+                    FileNotFoundError,
+                    ProcessLookupError,
+                    ValueError,
+                    requests.RequestException,
+                ) as e:
+                    print(f"Attempt {i}: Exception = {e}")
+            else:
+                print(f"Attempt {i}: PID file not found")
             time.sleep(1)
 
         if not server_ready:
-            assert False, f"Metrics server did not start within timeout"
+            assert False, "Metrics server did not start within timeout"
 
         # Run chopsticks workload in headless mode
         workload_cmd = [
@@ -164,21 +180,32 @@ def test_metrics_ipc_with_persistent_server():
             or "operation_duration_seconds" in metrics_text
         ), f"Expected operation metrics in Prometheus output, got:\n{metrics_text}"
 
-        print(f"\nMetrics successfully collected via IPC:")
+        print("\nMetrics successfully collected via IPC:")
         print(f"Metrics endpoint returned {len(metrics_text)} bytes")
 
     finally:
-        # Clean up - stop metrics server
+        # Clean up - stop metrics server using CLI
+        try:
+            stop_cmd = [
+                "uv",
+                "run",
+                "chopsticks",
+                "metrics",
+                "stop",
+                "--config",
+                config_path,
+            ]
+            result = subprocess.run(stop_cmd, capture_output=True, timeout=10)
+            # Give daemon time to clean up its own files
+            time.sleep(1)
+        except Exception as e:
+            print(f"Warning: Failed to stop via CLI: {e}")
+
+        # Fallback: kill by PID if CLI stop failed and we have the PID
         if metrics_server_process:
             try:
                 os.kill(metrics_server_process, signal.SIGTERM)
-                # Wait a bit for graceful shutdown
-                for _ in range(10):
-                    try:
-                        os.kill(metrics_server_process, 0)
-                        time.sleep(0.5)
-                    except ProcessLookupError:
-                        break
+                time.sleep(1)
             except ProcessLookupError:
                 pass
 
@@ -188,6 +215,14 @@ def test_metrics_ipc_with_persistent_server():
 
         if os.path.exists(socket_path):
             os.unlink(socket_path)
+
+        # Clean up any remaining PID/state files (shouldn't be needed if daemon works correctly)
+        for f in [
+            "/tmp/chopsticks_test_metrics.pid",
+            "/tmp/chopsticks_test_metrics_state.json",
+        ]:
+            if os.path.exists(f):
+                os.unlink(f)
 
 
 if __name__ == "__main__":
