@@ -21,6 +21,7 @@ _metrics_collector: Optional[MetricsCollector] = None
 _test_config: Optional[TestConfiguration] = None
 _metrics_ipc_client: Optional[MetricsIPCClient] = None
 _metrics_enabled = False
+_export_dir: Optional[str] = None  # Store the actual export directory to use
 
 
 def load_workload_config() -> dict:
@@ -117,7 +118,7 @@ def get_metrics_config(workload_config: dict) -> dict:
 @events.init.add_listener
 def on_locust_init(environment, **kwargs):
     """Initialize metrics collection when Locust starts"""
-    global _metrics_collector, _test_config, _metrics_ipc_client, _metrics_enabled
+    global _metrics_collector, _test_config, _metrics_ipc_client, _metrics_enabled, _export_dir
 
     # Load workload config to check metrics settings
     workload_config = load_workload_config()
@@ -146,14 +147,19 @@ def on_locust_init(environment, **kwargs):
     )
 
     # Create export directory with timestamp subdirectory
-    # Only create subdirectory if export_dir is not already set by run command
     base_export_dir = config["export_dir"]
-    if os.environ.get("CHOPSTICKS_RUN_DIR"):
-        # Run command already created a timestamped directory, use it directly
-        config["export_dir"] = base_export_dir
+    run_dir = os.environ.get("CHOPSTICKS_RUN_DIR")
+
+    if run_dir and run_dir == base_export_dir:
+        # Run command already created a timestamped directory AND it matches export_dir
+        # Use it directly (don't create another subdirectory)
+        _export_dir = base_export_dir
     else:
-        # Create our own timestamped subdirectory
-        config["export_dir"] = _create_metrics_export_dir(base_export_dir, test_run_id)
+        # Either no run command, or config specified different export_dir
+        # Create a timestamped subdirectory
+        _export_dir = _create_metrics_export_dir(base_export_dir, test_run_id)
+
+    config["export_dir"] = _export_dir
 
     # Initialize metrics collector (for local JSON/CSV export)
     _metrics_collector = MetricsCollector(
@@ -185,7 +191,7 @@ def on_locust_init(environment, **kwargs):
 @events.quitting.add_listener
 def on_locust_quit(environment, **kwargs):
     """Export metrics when Locust quits"""
-    global _metrics_collector, _test_config, _metrics_ipc_client, _metrics_enabled
+    global _metrics_collector, _test_config, _metrics_ipc_client, _metrics_enabled, _export_dir
 
     if not _metrics_enabled or not _metrics_collector:
         return
@@ -194,18 +200,14 @@ def on_locust_quit(environment, **kwargs):
     if _metrics_ipc_client:
         _metrics_ipc_client.close()
 
-    # Reload config for export directory
-    workload_config = load_workload_config()
-    config = get_metrics_config(workload_config)
-
     # Update test end time
     _test_config.end_time = datetime.utcnow()
     _test_config.duration_seconds = int(
         (_test_config.end_time - _test_config.start_time).total_seconds()
     )
 
-    # Export metrics
-    output_dir = config["export_dir"]
+    # Export metrics to the directory determined during init
+    output_dir = _export_dir
     os.makedirs(output_dir, exist_ok=True)
 
     _metrics_collector.export_json(f"{output_dir}/metrics.json")
@@ -220,7 +222,7 @@ def on_locust_quit(environment, **kwargs):
     print(f"{'=' * 70}")
     print(f"Total Operations: {summary['operations']['total']}")
     print(f"Success Rate: {summary['operations']['success_rate']:.2f}%")
-    print(f"Metrics exported to: {output_dir}")
+    print(f"Metrics exported to: {_export_dir}")
     print(f"{'=' * 70}\n")
 
 
