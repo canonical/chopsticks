@@ -369,8 +369,8 @@ jobs:
 
       - name: Validate exported metrics files
         run: |
-          # Find the most recent run directory (chopsticks creates timestamped dirs in /tmp/chopsticks/)
-          RUN_DIR=$(ls -td /tmp/chopsticks/*/ 2>/dev/null | head -1)
+          # Find the most recent run directory (metrics export to /tmp/chopsticks_metrics/* as per config)
+          RUN_DIR=$(ls -td /tmp/chopsticks_metrics/*/ 2>/dev/null | head -1)
           
           if [ -z "${RUN_DIR}" ]; then
             echo "❌ Run directory not found!"
@@ -432,6 +432,7 @@ jobs:
           name: test-report-with-metrics
           path: |
             /tmp/chopsticks/
+            /tmp/chopsticks_metrics/
             /tmp/prometheus.log
           retention-days: 30
 
