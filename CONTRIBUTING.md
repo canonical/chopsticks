@@ -2,7 +2,13 @@
 
 Thank you for your interest in contributing to Chopsticks! This document provides guidelines and instructions for contributing.
 
+## Using Chopsticks
+
+For end users, we recommend installing Chopsticks as a snap. See the main [README.md](README.md#installation) for snap installation instructions.
+
 ## Development Setup
+
+This section is for contributors who want to develop Chopsticks.
 
 ### Prerequisites
 
@@ -10,6 +16,7 @@ Thank you for your interest in contributing to Chopsticks! This document provide
 - [uv](https://astral.sh/uv/) package manager
 - Git
 - MicroCeph (for functional testing)
+- Snapcraft (for building snaps)
 
 ### Initial Setup
 

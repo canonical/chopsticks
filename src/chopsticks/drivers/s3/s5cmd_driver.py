@@ -25,8 +25,36 @@ class S5cmdDriver(BaseS3Driver):
 
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
-        self.s5cmd_path = config.get("driver_config", {}).get("s5cmd_path", "s5cmd")
+        self.s5cmd_path = self._get_s5cmd_path(config)
         self._setup_credentials()
+
+    def _get_s5cmd_path(self, config: Dict[str, Any]) -> str:
+        """Determine the s5cmd path based on environment.
+        
+        Priority:
+        1. Explicit config (driver_config.s5cmd_path)
+        2. Snap environment path (/snap/chopsticks/current/bin/s5cmd)
+        3. System PATH (s5cmd)
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            Path to s5cmd binary
+        """
+        # Check for explicit config
+        config_path = config.get("driver_config", {}).get("s5cmd_path")
+        if config_path:
+            return config_path
+        
+        # Check if running in snap
+        if os.environ.get("SNAP_NAME") == "chopsticks":
+            snap_s5cmd = f"{os.environ.get('SNAP')}/bin/s5cmd"
+            if os.path.exists(snap_s5cmd):
+                return snap_s5cmd
+        
+        # Default to system PATH
+        return "s5cmd"
 
     def _setup_credentials(self):
         """Setup environment variables for s5cmd authentication"""
