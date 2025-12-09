@@ -1,5 +1,5 @@
-# Canonical theme
-canonical-sphinx>=0.5.1
+# Canonical theme (with full extras including Vale)
+canonical-sphinx[full]>=0.5.1
 
 # Core extensions
 myst-parser
@@ -26,3 +26,6 @@ packaging
 sphinxcontrib-svg2pdfconverter[CairoSVG]
 sphinx-last-updated-by-git
 sphinx-sitemap
+
+# Quality checks
+vale
