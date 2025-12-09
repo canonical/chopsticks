@@ -55,7 +55,7 @@ jobs:
           
           Documentation is published via Read the Docs at:
           
-            🌐 https://chopsticks.readthedocs.io
+            🌐 https://canonical-chopsticks.readthedocs-hosted.com
           
           Read the Docs automatically builds documentation when:
             ✓ Changes are pushed to main branch
@@ -69,7 +69,7 @@ jobs:
             • Theme: Canonical Sphinx (Furo-based)
             
           Build status:
-            • Check: https://readthedocs.org/projects/chopsticks/builds/
+            • Check: https://readthedocs.org/projects/canonical-chopsticks/builds/
             
           Documentation structure (Diátaxis):
             📘 Tutorial      - Learning-oriented guides
@@ -85,8 +85,8 @@ jobs:
             ✓ Version management
             ✓ Search functionality
             ✓ PDF/EPUB downloads
-            ✓ Canonical subdomain (chopsticks.readthedocs.io)
+            ✓ Canonical subdomain (canonical-chopsticks.readthedocs-hosted.com)
           
           EOF
           
-          echo "::notice::Documentation will be available at https://chopsticks.readthedocs.io"
+          echo "::notice::Documentation will be available at https://canonical-chopsticks.readthedocs-hosted.com"

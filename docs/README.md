@@ -14,13 +14,12 @@ The documentation is organized into four content types following [Diátaxis](htt
 ## 🌐 Published Documentation
 
 ### Main Documentation
-- **Production:** https://chopsticks.readthedocs.io
-- **Canonical subdomain:** https://canonical-chopsticks.readthedocs-hosted.com
+- **Production:** https://canonical-chopsticks.readthedocs-hosted.com
 
 ### Pull Request Previews
 Every pull request automatically gets a preview build on Read the Docs:
-- **Format:** `https://chopsticks--pr-<number>.readthedocs.io`
-- **Example:** PR #11 → https://chopsticks--pr-11.readthedocs.io
+- **Format:** `https://canonical-chopsticks--pr-<number>.readthedocs-hosted.com`
+- **Example:** PR #11 → https://canonical-chopsticks--pr-11.readthedocs-hosted.com
 
 RTD automatically:
 - Builds documentation on PR creation/updates

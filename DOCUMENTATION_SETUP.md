@@ -126,7 +126,7 @@ make serve    # Start local server
 3. **First Build:**
    - RTD will automatically build on push to main
    - Build takes ~3-5 minutes
-   - Documentation will be available at: https://chopsticks.readthedocs.io
+   - Documentation will be available at: https://canonical-chopsticks.readthedocs-hosted.com
 
 ### Optional Enhancements
 

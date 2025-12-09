@@ -14,7 +14,7 @@ copyright = "%s Apache-2.0, %s" % (datetime.date.today().year, author)
 html_title = project + " documentation"
 
 # Documentation website URL
-ogp_site_url = "https://chopsticks.readthedocs.io/"
+ogp_site_url = "https://canonical-chopsticks.readthedocs-hosted.com/"
 ogp_site_name = project
 ogp_image = "https://assets.ubuntu.com/v1/cc828679-docs_illustration.svg"
 

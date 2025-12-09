@@ -365,8 +365,8 @@ Verifies documentation is ready for Read the Docs publishing.
 
 **Publishing:**
 Documentation is automatically published by Read the Docs at:
-- **Production:** https://chopsticks.readthedocs.io
-- **PR Previews:** https://chopsticks.readthedocs.io/en/<pr-number>/
+- **Production:** https://canonical-chopsticks.readthedocs-hosted.com
+- **PR Previews:** https://canonical-chopsticks--pr-<number>.readthedocs-hosted.com
 
 Read the Docs automatically:
 - Builds on every push to main
@@ -429,7 +429,7 @@ Add to README.md:
 
 Documentation is automatically published by Read the Docs. No configuration needed!
 
-- **URL:** https://chopsticks.readthedocs.io
+- **URL:** https://canonical-chopsticks.readthedocs-hosted.com
 - **Configuration:** `.readthedocs.yaml` (already configured)
 - **Automatic:** Builds on push to main and PRs
 

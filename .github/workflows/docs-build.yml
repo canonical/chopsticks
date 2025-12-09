@@ -2,8 +2,8 @@ name: Documentation Build
 
 # This workflow validates documentation builds locally in CI.
 # PR previews are automatically built and hosted by Read the Docs at:
-#   - Main: https://chopsticks.readthedocs.io
-#   - PRs:  https://chopsticks--pr-<number>.readthedocs.io
+#   - Main: https://canonical-chopsticks.readthedocs-hosted.com
+#   - PRs:  https://canonical-chopsticks--pr-<number>.readthedocs-hosted.com
 # RTD builds are triggered automatically on PR creation/updates.
 
 on:
