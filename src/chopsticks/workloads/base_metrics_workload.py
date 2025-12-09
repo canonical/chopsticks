@@ -118,7 +118,12 @@ def get_metrics_config(workload_config: dict) -> dict:
 @events.init.add_listener
 def on_locust_init(environment, **kwargs):
     """Initialize metrics collection when Locust starts"""
-    global _metrics_collector, _test_config, _metrics_ipc_client, _metrics_enabled, _export_dir
+    global \
+        _metrics_collector, \
+        _test_config, \
+        _metrics_ipc_client, \
+        _metrics_enabled, \
+        _export_dir
 
     # Load workload config to check metrics settings
     workload_config = load_workload_config()
@@ -191,7 +196,12 @@ def on_locust_init(environment, **kwargs):
 @events.quitting.add_listener
 def on_locust_quit(environment, **kwargs):
     """Export metrics when Locust quits"""
-    global _metrics_collector, _test_config, _metrics_ipc_client, _metrics_enabled, _export_dir
+    global \
+        _metrics_collector, \
+        _test_config, \
+        _metrics_ipc_client, \
+        _metrics_enabled, \
+        _export_dir
 
     if not _metrics_enabled or not _metrics_collector:
         return
