@@ -80,7 +80,7 @@ Location: ``src/chopsticks/workloads/s3/s3_workload.py``
 Methods
 ~~~~~~~
 
-.. py:method:: upload(key: str, data: bytes, metadata: Optional[Dict] = None) -> bool
+.. py:method:: S3Client.upload(key: str, data: bytes, metadata: Optional[Dict] = None) -> bool
 
    Upload object with timing.
 
@@ -91,7 +91,7 @@ Methods
 
    Fires Locust event with operation metrics.
 
-.. py:method:: download(key: str) -> Optional[bytes]
+.. py:method:: S3Client.download(key: str) -> Optional[bytes]
 
    Download object with timing.
 
@@ -100,7 +100,7 @@ Methods
 
    Fires Locust event with operation metrics.
 
-.. py:method:: delete(key: str) -> bool
+.. py:method:: S3Client.delete(key: str) -> bool
 
    Delete object with timing.
 
@@ -109,7 +109,7 @@ Methods
 
    Fires Locust event with operation metrics.
 
-.. py:method:: list_objects(prefix: str = "", max_keys: int = 1000) -> List[str]
+.. py:method:: S3Client.list_objects(prefix: str = "", max_keys: int = 1000) -> List[str]
 
    List objects with timing.
 
@@ -119,7 +119,7 @@ Methods
 
    Fires Locust event with operation metrics.
 
-.. py:method:: head_object(key: str) -> Optional[Dict]
+.. py:method:: S3Client.head_object(key: str) -> Optional[Dict]
 
    Get object metadata with timing.
 

@@ -32,7 +32,7 @@ Constructor
 Methods
 ~~~~~~~
 
-.. py:method:: upload(key: str, data: bytes, metadata: Optional[Dict[str, str]] = None) -> bool
+.. py:method:: BaseS3Driver.upload(key: str, data: bytes, metadata: Optional[Dict[str, str]] = None) -> bool
 
    Upload object to S3.
 
@@ -41,21 +41,21 @@ Methods
    :param metadata: Optional metadata dictionary
    :returns: ``True`` if successful, ``False`` otherwise
 
-.. py:method:: download(key: str) -> Optional[bytes]
+.. py:method:: BaseS3Driver.download(key: str) -> Optional[bytes]
 
    Download object from S3.
 
    :param key: Object key
    :returns: Object data as bytes, or ``None`` if failed
 
-.. py:method:: delete(key: str) -> bool
+.. py:method:: BaseS3Driver.delete(key: str) -> bool
 
    Delete object from S3.
 
    :param key: Object key
    :returns: ``True`` if successful, ``False`` otherwise
 
-.. py:method:: list_objects(prefix: str = "", max_keys: int = 1000) -> List[str]
+.. py:method:: BaseS3Driver.list_objects(prefix: str = "", max_keys: int = 1000) -> List[str]
 
    List objects in bucket.
 
@@ -63,7 +63,7 @@ Methods
    :param max_keys: Maximum number of keys to return
    :returns: List of object keys, empty list if failed
 
-.. py:method:: head_object(key: str) -> Optional[Dict]
+.. py:method:: BaseS3Driver.head_object(key: str) -> Optional[Dict]
 
    Get object metadata without downloading.
 
