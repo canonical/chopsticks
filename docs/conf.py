@@ -61,6 +61,8 @@ redirects = {}
 linkcheck_ignore = [
     "http://127.0.0.1:8000",
     "http://10.240.47.47:80",  # Local test endpoints
+    "http://localhost:8089",  # Locust web UI (local only)
+    "http://controller-ip:8089",  # Placeholder for user's controller IP
 ]
 
 linkcheck_anchors_ignore_for_url = [r"https://github\.com/.*"]
