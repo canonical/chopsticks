@@ -482,8 +482,12 @@ See [`.github/workflows/README.md`](.github/workflows/README.md) for details.
 
 ## License
 
-MIT
+This project is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later).
+
+See the [LICENSE](LICENSE) file for the full license text.
 
 ## Author
 
 Utkarsh Bhatt <utkarsh.bhatt@canonical.com>
+
+Copyright (C) 2024 Canonical Ltd.
