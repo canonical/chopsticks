@@ -16,15 +16,19 @@ Distributed testing allows you to:
 Architecture
 ------------
 
-Locust uses a master-worker architecture:
+Locust uses a controller-worker architecture:
 
-* **Master**: Coordinates workers, aggregates metrics, hosts web UI
-* **Workers**: Execute test scenarios, report metrics to master
+* **Controller**: Coordinates workers, aggregates metrics, hosts web UI
+* **Workers**: Execute test scenarios, report metrics to controller
 
-Start the master node
----------------------
+.. note::
+   The Locust CLI uses ``--master`` for the controller node and ``--master-host`` 
+   to specify the controller's address. These are Locust's native flags.
 
-On your master machine:
+Start the controller node
+--------------------------
+
+On your controller machine:
 
 .. code-block:: bash
 
@@ -33,7 +37,7 @@ On your master machine:
      -f src/chopsticks/scenarios/s3_large_objects.py \
      --master
 
-The master:
+The controller:
 
 * Starts web UI on port 8089
 * Listens for worker connections on port 5557
@@ -42,7 +46,7 @@ The master:
 Web UI mode
 ~~~~~~~~~~~
 
-Access http://master-ip:8089 to configure and start the test.
+Access http://controller-ip:8089 to configure and start the test.
 
 Headless mode
 ~~~~~~~~~~~~~
@@ -69,13 +73,13 @@ On each worker machine:
      --workload-config config/s3_config.yaml \
      -f src/chopsticks/scenarios/s3_large_objects.py \
      --worker \
-     --master-host=<master-ip-address>
+     --master-host=<controller-ip-address>
 
 Each worker:
 
-* Connects to master on port 5557
+* Connects to controller on port 5557
 * Executes test scenarios
-* Reports metrics back to master
+* Reports metrics back to controller
 
 Multiple workers per machine
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -87,12 +91,12 @@ Run multiple worker processes on powerful machines:
    # Terminal 1
    uv run chopsticks run --workload-config config/s3_config.yaml \
      -f src/chopsticks/scenarios/s3_large_objects.py \
-     --worker --master-host=<master-ip>
+     --worker --master-host=<controller-ip>
    
    # Terminal 2
    uv run chopsticks run --workload-config config/s3_config.yaml \
      -f src/chopsticks/scenarios/s3_large_objects.py \
-     --worker --master-host=<master-ip>
+     --worker --master-host=<controller-ip>
 
 Custom worker ports
 ~~~~~~~~~~~~~~~~~~~
@@ -105,7 +109,7 @@ If running multiple workers on one machine with different configs:
      --workload-config config/s3_config.yaml \
      -f src/chopsticks/scenarios/s3_large_objects.py \
      --worker \
-     --master-host=<master-ip> \
+     --master-host=<controller-ip> \
      --master-port=5557
 
 Network configuration
@@ -113,13 +117,13 @@ Network configuration
 
 Ensure these ports are open:
 
-* **5557**: Master-worker communication
-* **8089**: Web UI (master only)
+* **5557**: Controller-worker communication
+* **8089**: Web UI (controller only)
 
 Firewall rules
 ~~~~~~~~~~~~~~
 
-On master:
+On controller:
 
 .. code-block:: bash
 
@@ -157,12 +161,12 @@ On each worker:
    ./scripts/install_s5cmd.sh
    
    # Copy config file
-   scp master:/path/to/s3_config.yaml config/
+   scp controller:/path/to/s3_config.yaml config/
 
 Monitoring distributed tests
 -----------------------------
 
-The master web UI shows:
+The controller web UI shows:
 
 * Total workers connected
 * Aggregate metrics across all workers
@@ -181,10 +185,10 @@ Troubleshooting
 
 **Workers not connecting**
 
-* Check master IP is reachable: ``ping <master-ip>``
-* Verify port 5557 is open: ``nc -zv <master-ip> 5557``
+* Check controller IP is reachable: ``ping <controller-ip>``
+* Verify port 5557 is open: ``nc -zv <controller-ip> 5557``
 * Check firewall rules
-* Ensure master is running first
+* Ensure controller is running first
 
 **Uneven load distribution**
 
@@ -201,7 +205,7 @@ Troubleshooting
 Best practices
 --------------
 
-1. **Start master first** - Workers need master to connect to
+1. **Start controller first** - Workers need controller to connect to
 2. **Use homogeneous workers** - Similar hardware for even distribution
 3. **Scale horizontally** - More workers instead of larger workers
 4. **Monitor worker health** - Check CPU, memory, network on workers
@@ -212,10 +216,10 @@ Example: 10,000 concurrent users
 
 Setup:
 
-* 1 master node (8 CPU, 16GB RAM)
+* 1 controller node (8 CPU, 16GB RAM)
 * 20 worker nodes (8 CPU, 16GB RAM each)
 
-Master:
+Controller:
 
 .. code-block:: bash
 
@@ -236,7 +240,7 @@ Each worker:
      --workload-config config/s3_config.yaml \
      -f src/chopsticks/scenarios/s3_large_objects.py \
      --worker \
-     --master-host=<master-ip>
+     --master-host=<controller-ip>
 
 Result: ~500 users per worker, total 10,000 concurrent users.
 

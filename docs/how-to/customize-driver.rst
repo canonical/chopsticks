@@ -17,7 +17,7 @@ Current S3 drivers
 ------------------
 
 * **s5cmd**: CLI-based, high-performance (default)
-* **dummy**: Testing/development driver
+* **mock**: Testing/development driver
 
 Configure driver timeout
 ------------------------

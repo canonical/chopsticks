@@ -168,16 +168,16 @@ Scaling model
 Horizontal scaling
 ~~~~~~~~~~~~~~~~~~
 
-Chopsticks scales horizontally using Locust's master-worker architecture:
+Chopsticks scales horizontally using Locust's controller-worker architecture:
 
-* **Master**: Coordinates workers, aggregates metrics
+* **Controller**: Coordinates workers, aggregates metrics
 * **Workers**: Execute tests in parallel
 
 With 10 workers and 1000 users:
 
 * Each worker runs ~100 users
 * Load is automatically distributed
-* Metrics aggregated at master
+* Metrics aggregated at controller
 
 Vertical scaling limits
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -203,7 +203,7 @@ Chopsticks uses Locust as its foundation because:
    Easy to extend and customize test scenarios.
 
 **Built for scale**
-   Master-worker architecture handles thousands of users.
+   Controller-worker architecture handles thousands of users.
 
 **Flexible**
    Web UI for interactive testing, headless for automation.

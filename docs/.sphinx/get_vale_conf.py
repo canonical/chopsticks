@@ -41,6 +41,27 @@ def main():
         )
         file.write(download.text)
         file.close()
+    # Download dictionaries for spellcheck
+    if os.path.exists(f"{DIR}/.sphinx/styles/config/dictionaries"):
+        print("Dictionaries directory exists")
+    else:
+        os.makedirs(f"{DIR}/.sphinx/styles/config/dictionaries")
+    
+    url = (
+        "https://api.github.com/repos/canonical/praecepta/"
+        + "contents/styles/config/dictionaries"
+    )
+    r = requests.get(url)
+    for item in r.json():
+        if item["name"].endswith((".aff", ".dic")):
+            download = requests.get(item["download_url"])
+            file = open(
+                ".sphinx/styles/config/dictionaries/" + item["name"],
+                "w"
+            )
+            file.write(download.text)
+            file.close()
+    
     config = requests.get(
         "https://raw.githubusercontent.com/canonical/praecepta/main/vale.ini"
     )

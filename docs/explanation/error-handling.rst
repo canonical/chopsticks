@@ -135,7 +135,7 @@ Nonexistent bucket
 Network timeout
 ~~~~~~~~~~~~~~~
 
-**Symptom:** Operations hang and timeout
+**Symptom:** Operations stall and timeout
 
 **Error flow:**
 
