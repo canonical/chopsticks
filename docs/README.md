@@ -1,112 +1,139 @@
 # Chopsticks Documentation
 
-This directory contains the Sphinx documentation for Chopsticks, built using the [Canonical Sphinx Docs Starter Pack](https://github.com/canonical/sphinx-docs-starter-pack).
+This directory contains the documentation for Chopsticks, built using Sphinx with the Canonical theme and following the Diátaxis framework.
 
-## Documentation Structure
+## 📚 Documentation Structure
 
-The documentation follows the [Diátaxis](https://diataxis.fr/) framework:
+The documentation is organized into four content types following [Diátaxis](https://diataxis.fr/):
 
-### Tutorial (Learning-oriented)
-Hands-on introduction for new users:
-- Installation
-- Running first test
-- Understanding results
+- **Tutorial** (`tutorial/`) - Learning-oriented guides
+- **How-to Guides** (`how-to/`) - Task-oriented instructions
+- **Reference** (`reference/`) - Information-oriented technical details
+- **Explanation** (`explanation/`) - Understanding-oriented conceptual discussions
 
-### How-to Guides (Task-oriented)
-Step-by-step guides for common tasks:
-- Creating custom scenarios
-- Collecting metrics
-- Running distributed tests
-- Customizing drivers
+## 🌐 Published Documentation
 
-### Reference (Information-oriented)
-Technical specifications:
-- CLI reference
-- Configuration reference
-- Metrics schema
-- Driver API
-- Workload API
+### Main Documentation
+- **Production:** https://chopsticks.readthedocs.io
+- **Canonical subdomain:** https://canonical-chopsticks.readthedocs-hosted.com
 
-### Explanation (Understanding-oriented)
-Conceptual documentation:
-- Architecture
-- Metrics architecture
-- Scenarios
-- Error handling
+### Pull Request Previews
+Every pull request automatically gets a preview build on Read the Docs:
+- **Format:** `https://chopsticks--pr-<number>.readthedocs.io`
+- **Example:** PR #11 → https://chopsticks--pr-11.readthedocs.io
 
-## Building the Documentation
+RTD automatically:
+- Builds documentation on PR creation/updates
+- Publishes to a unique PR-specific URL
+- Updates the PR with a comment containing the preview link
+- Removes the preview when the PR is closed/merged
 
-### Prerequisites
+## 🛠️ Local Development
 
+### Install Dependencies
 ```bash
-# Install Python 3.12+ and python3-venv
-sudo apt install python3-venv
-```
-
-### Build Locally
-
-```bash
-# Install dependencies and build
 cd docs
 make install
+```
+
+### Build HTML
+```bash
 make html
-
-# View in browser
-make serve
-# Open http://localhost:8000
 ```
 
-### Live Reload Development
+Open `_build/index.html` in your browser to view.
 
+### Live Preview
 ```bash
-cd docs
 make run
-# Open http://localhost:8000
-# Docs rebuild automatically on changes
 ```
 
-### Build PDF
+Opens http://localhost:8000 with auto-reload on file changes.
 
+## ✅ Quality Checks
+
+### Run All Checks
 ```bash
-cd docs
-sudo make pdf-prep-force  # Install LaTeX dependencies
-make pdf
-# Output in docs/_build/
+make vale      # Style guide compliance
+make woke      # Inclusive language check
+make spelling  # Spell checking
+make linkcheck # Verify all links
 ```
 
-## Linting and Checks
+### Add Custom Terms
+Edit `.custom_wordlist.txt` to add project-specific terms that should not be flagged as spelling errors.
 
+## 📝 Writing Documentation
+
+### File Format
+- Use reStructuredText (`.rst`) for structured content
+- MyST Markdown (`.md`) is also supported for simple pages
+
+### Style Guidelines
+- Follow the Canonical style guide (enforced by Vale)
+- Use inclusive language (enforced by woke checks)
+- Include code examples where relevant
+- Add cross-references between related pages
+
+### Document Structure
+```rst
+Page Title
+==========
+
+Brief introduction to the topic.
+
+Section Heading
+---------------
+
+Content with examples:
+
+.. code-block:: bash
+
+   chopsticks run --config myconfig.yaml
+
+Subsection
+~~~~~~~~~~
+
+More detailed content.
+```
+
+## 🔧 Configuration Files
+
+- `.readthedocs.yaml` - Read the Docs build configuration
+- `conf.py` - Sphinx configuration
+- `requirements.txt` - Python dependencies
+- `Makefile` - Build automation
+- `.custom_wordlist.txt` - Custom vocabulary for spell checking
+
+## 🤝 Contributing
+
+When adding new documentation:
+
+1. Choose the appropriate Diátaxis category
+2. Follow existing file naming conventions
+3. Add the new file to the appropriate `index.rst` toctree
+4. Run quality checks locally before committing
+5. Ensure CI checks pass
+
+## 🐛 Troubleshooting
+
+### Build Failures
 ```bash
-cd docs
+# Clean build artifacts
+make clean
 
-# Check links
-make linkcheck
-
-# Check spelling
-make spelling
-
-# Check inclusive language
-make woke
-
-# Check style guide compliance
-make vale
+# Rebuild from scratch
+make html
 ```
 
-## Publishing
+### Vale/Woke Errors
+- Check `.custom_wordlist.txt` for missing terms
+- Review inclusive language alternatives
+- Consult the Canonical style guide
 
-Documentation is automatically published to Read the Docs when changes are pushed to the `main` branch.
+## 📖 Resources
 
-**Read the Docs Configuration:** `.readthedocs.yaml` in repository root
-
-## Contributing
-
-When adding or updating documentation:
-
-1. Follow the Diátaxis framework placement
-2. Use reStructuredText (.rst) format
-3. Add to appropriate index file
-4. Build locally to verify
-5. Run linting checks
-6. Commit with descriptive message
-
-See `CONTRIBUTING.md` in repository root for full contribution guidelines.
+- [Diátaxis Framework](https://diataxis.fr/)
+- [Canonical Documentation Starter Pack](https://github.com/canonical/sphinx-docs-starter-pack)
+- [Sphinx Documentation](https://www.sphinx-doc.org/)
+- [Read the Docs](https://docs.readthedocs.io/)

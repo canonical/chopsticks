@@ -1,5 +1,11 @@
 name: Documentation Build
 
+# This workflow validates documentation builds locally in CI.
+# PR previews are automatically built and hosted by Read the Docs at:
+#   - Main: https://chopsticks.readthedocs.io
+#   - PRs:  https://chopsticks--pr-<number>.readthedocs.io
+# RTD builds are triggered automatically on PR creation/updates.
+
 on:
   pull_request:
     branches: [main]
@@ -78,57 +84,6 @@ jobs:
           
           echo "✅ All required documentation files present"
   
-  build-pdf:
-    name: Build PDF Documentation
-    runs-on: ubuntu-22.04
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            python3-venv \
-            latexmk \
-            fonts-freefont-otf \
-            texlive-latex-recommended \
-            texlive-latex-extra \
-            texlive-fonts-recommended \
-            texlive-font-utils \
-            texlive-xetex \
-            xindy \
-            tex-gyre \
-            dvipng
-      
-      - name: Install documentation dependencies
-        working-directory: docs
-        run: |
-          make install
-      
-      - name: Build PDF documentation
-        working-directory: docs
-        run: |
-          make pdf || echo "::warning::PDF build failed - this is non-critical"
-      
-      - name: Upload PDF artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: documentation-pdf
-          path: docs/_build/*.pdf
-          retention-days: 7
-          if-no-files-found: warn
-  
-  test-rtd-config:
     name: Test RTD Configuration
     runs-on: ubuntu-22.04
     
