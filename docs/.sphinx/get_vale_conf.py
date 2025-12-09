@@ -17,7 +17,15 @@ def main():
         + "contents/styles/Canonical"
     )
     r = requests.get(url)
-    for item in r.json():
+    response_data = r.json()
+    
+    # Check if response is a list (expected) or error dict
+    if isinstance(response_data, dict):
+        print(f"Error fetching Vale styles: {response_data.get('message', 'Unknown error')}")
+        print(f"URL: {url}")
+        return
+    
+    for item in response_data:
         download = requests.get(item["download_url"])
         file = open(".sphinx/styles/Canonical/" + item["name"], "w")
         file.write(download.text)
