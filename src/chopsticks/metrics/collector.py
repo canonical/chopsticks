@@ -1,3 +1,18 @@
+# Copyright (C) 2024 Canonical Ltd.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 3, as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 """Metrics collection and aggregation"""
 
 import statistics
@@ -207,17 +222,19 @@ class MetricsCollector:
                 "total": total_operations,
                 "successful": successful,
                 "failed": failed,
-                "success_rate": (successful / total_operations) * 100
-                if total_operations > 0
-                else 0,
+                "success_rate": (
+                    (successful / total_operations) * 100 if total_operations > 0 else 0
+                ),
             },
             "overall_performance": {
-                "duration_ms": self._compute_statistics(durations).to_dict()
-                if durations
-                else {},
-                "throughput_mbps": self._compute_statistics(throughputs).to_dict()
-                if throughputs
-                else {},
+                "duration_ms": (
+                    self._compute_statistics(durations).to_dict() if durations else {}
+                ),
+                "throughput_mbps": (
+                    self._compute_statistics(throughputs).to_dict()
+                    if throughputs
+                    else {}
+                ),
             },
             "by_operation": operation_summaries,
             "errors": {

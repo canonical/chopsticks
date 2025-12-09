@@ -1,3 +1,18 @@
+# Copyright (C) 2024 Canonical Ltd.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 3, as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 """
 Unit tests for error handling in chopsticks
 
@@ -280,16 +295,16 @@ class TestEndToEndErrorHandling:
                     failed_count += 1
 
             # Verify 100% failure rate
-            assert failed_count == total_operations, (
-                f"Expected 100% failure rate, got {failed_count}/{total_operations}"
-            )
+            assert (
+                failed_count == total_operations
+            ), f"Expected 100% failure rate, got {failed_count}/{total_operations}"
 
             # Verify all events have exceptions
             assert len(fired_events) == total_operations
             for event in fired_events:
-                assert event["exception"] is not None, (
-                    "All failed operations should have exceptions"
-                )
+                assert (
+                    event["exception"] is not None
+                ), "All failed operations should have exceptions"
 
     @pytest.mark.timeout(10)
     def test_mixed_operations_all_fail_with_bad_config(self):
