@@ -261,4 +261,4 @@ See also
 --------
 
 * :doc:`../how-to/collect-metrics`
-* :doc:`../explanation/configuration-system`
+* :doc:`../explanation/architecture`

@@ -296,4 +296,4 @@ See also
 --------
 
 * :doc:`../reference/driver-api`
-* :doc:`../explanation/driver-architecture`
+* :doc:`../explanation/architecture`

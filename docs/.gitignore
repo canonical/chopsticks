@@ -1,6 +1,7 @@
 # Sphinx build outputs
 _build/
-.sphinx/
+.sphinx/*
+!.sphinx/get_vale_conf.py
 
 # Python
 __pycache__/

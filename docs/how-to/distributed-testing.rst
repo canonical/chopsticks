@@ -244,4 +244,4 @@ See also
 --------
 
 * `Locust distributed testing docs <https://docs.locust.io/en/stable/running-distributed.html>`_
-* :doc:`../explanation/scaling`
+* :doc:`../explanation/architecture`

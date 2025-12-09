@@ -94,6 +94,8 @@ extensions = [
 
 exclude_patterns = [
     "doc-cheat-sheet*",
+    "README.md",
+    ".sphinx",
 ]
 
 rst_epilog = """

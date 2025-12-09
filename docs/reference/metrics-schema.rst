@@ -11,7 +11,7 @@ Per-operation performance data collected during tests.
 Schema
 ~~~~~~
 
-.. code-block:: json
+.. code-block:: javascript
 
    {
      "operation_id": "uuid-v4",
@@ -53,7 +53,7 @@ Schema
 
 **Example:**
 
-.. code-block:: json
+.. code-block:: javascript
 
    {
      "operation_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -86,7 +86,7 @@ Statistical summaries computed over time windows.
 Schema
 ~~~~~~
 
-.. code-block:: json
+.. code-block:: javascript
 
    {
      "test_run_id": "uuid-v4",
@@ -145,7 +145,7 @@ Schema
 
 **Example:**
 
-.. code-block:: json
+.. code-block:: javascript
 
    {
      "test_run_id": "550e8400-e29b-41d4-a716-446655440001",
@@ -198,7 +198,7 @@ Metadata about the test run.
 Schema
 ~~~~~~
 
-.. code-block:: json
+.. code-block:: javascript
 
    {
      "test_run_id": "uuid-v4",
@@ -230,7 +230,7 @@ Schema
 
 **Example:**
 
-.. code-block:: json
+.. code-block:: javascript
 
    {
      "test_run_id": "550e8400-e29b-41d4-a716-446655440001",
