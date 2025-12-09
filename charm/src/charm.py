@@ -181,7 +181,8 @@ class ChopsticksCharm(ops.CharmBase):
         """Handle leader election.
 
         If a test was running when the previous leader failed, mark it as
-        interrupted rather than idle.
+        failed. Workers connected to the old master are now orphaned and their
+        results are suspect, so we treat any in-progress test as failed.
         """
         logger.info("_on_leader_elected: this unit is now the leader (Locust master)")
         logger.debug("_on_leader_elected: stopping all services")
@@ -192,8 +193,11 @@ class ChopsticksCharm(ops.CharmBase):
         previous_state = self._get_peer_data("test_state", "idle")
         logger.debug("_on_leader_elected: previous test_state=%s", previous_state)
         if previous_state == "running":
-            self._set_peer_data("test_state", "interrupted")
-            logger.warning("Previous leader failed during test run; marking as interrupted")
+            self._set_peer_data("test_state", "failed")
+            logger.warning(
+                "Previous leader failed during test run; marking test as failed "
+                "(workers connected to old master, results suspect)"
+            )
         else:
             self._set_peer_data("test_state", "idle")
 
@@ -201,7 +205,12 @@ class ChopsticksCharm(ops.CharmBase):
         self._set_ready_status()
 
     def _on_cluster_changed(self, event: ops.RelationEvent) -> None:
-        """Handle peer relation changes."""
+        """Handle peer relation changes.
+
+        When master address changes (leader failover), workers must stop to
+        avoid running with a stale master address. Any running test is already
+        marked as failed by _on_leader_elected on the new leader.
+        """
         logger.debug(
             "_on_cluster_changed: event=%s, is_leader=%s",
             type(event).__name__,
@@ -211,7 +220,15 @@ class ChopsticksCharm(ops.CharmBase):
             logger.debug("_on_cluster_changed: publishing master address (leader)")
             self._publish_master_address()
         else:
-            if self.config.get("autostart-workers"):
+            new_master = self._get_peer_data("master_address", "")
+            if self._is_service_running(WORKER_SERVICE):
+                self._stop_service(WORKER_SERVICE)
+                logger.info(
+                    "_on_cluster_changed: stopped worker due to master change "
+                    "(new master: %s)",
+                    new_master or "unknown",
+                )
+            if self.config.get("autostart-workers") and new_master:
                 logger.debug("_on_cluster_changed: attempting to start worker (non-leader)")
                 self._maybe_start_worker()
 
