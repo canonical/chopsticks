@@ -43,24 +43,31 @@ def main():
             args.state_file.unlink(missing_ok=True)
 
     # Handle shutdown signals
-    def signal_handler(sig, frame):
-        print("Shutting down metrics server...", file=sys.stderr)
-        server.stop()
-        cleanup()
-        sys.exit(0)
+    shutdown_requested = False
 
+    def signal_handler(sig, frame):
+        nonlocal shutdown_requested
+        shutdown_requested = True
+        server.stop()
+
+    # Register signal handlers before starting server
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
+
+    # Ensure signals aren't blocked
+    signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGTERM, signal.SIGINT})
 
     try:
         # Start server (this blocks)
         server.start()
+    except (KeyboardInterrupt, SystemExit):
+        pass
     except Exception as e:
-        print(f"Server error: {e}", file=sys.stderr)
-        cleanup()
-        sys.exit(1)
+        print(f"Server error: {e}", file=sys.stderr, flush=True)
     finally:
         cleanup()
+        if shutdown_requested:
+            print("Shutdown complete", file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":

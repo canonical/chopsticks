@@ -60,7 +60,8 @@ def test_daemon_cleans_up_on_sigterm():
         os.kill(pid, signal.SIGTERM)
 
         # Wait for process to exit and clean up (with proper polling)
-        max_wait = 10  # seconds
+        # Daemon needs time to: handle signal, stop HTTP server (5s timeout), cleanup files
+        max_wait = 15  # seconds
         poll_interval = 0.1
         elapsed = 0
 
@@ -79,12 +80,19 @@ def test_daemon_cleans_up_on_sigterm():
             "/tmp/chopsticks_cleanup_test.sock"
         ).exists(), "Socket file should be removed"
 
+        # Wait for process to fully exit (files are removed first, then process exits)
+        max_process_wait = 5
+        process_exited = False
+        for _ in range(max_process_wait * 10):
+            try:
+                os.kill(pid, 0)
+                time.sleep(0.1)
+            except ProcessLookupError:
+                process_exited = True
+                break
+
         # Verify process is gone
-        try:
-            os.kill(pid, 0)
-            pytest.fail("Process should have exited")
-        except ProcessLookupError:
-            pass  # Expected
+        assert process_exited, f"Process {pid} should have exited after cleanup"
 
     finally:
         # Cleanup
@@ -168,12 +176,18 @@ def test_stop_command_cleans_up_resources():
         assert not Path("/tmp/chopsticks_stop_test_state.json").exists()
         assert not Path("/tmp/chopsticks_stop_test.sock").exists()
 
+        # Wait for process to fully exit
+        process_exited = False
+        for _ in range(50):  # 5 seconds
+            try:
+                os.kill(pid, 0)
+                time.sleep(0.1)
+            except ProcessLookupError:
+                process_exited = True
+                break
+
         # Verify process is gone
-        try:
-            os.kill(pid, 0)
-            pytest.fail("Process should have exited")
-        except ProcessLookupError:
-            pass  # Expected
+        assert process_exited, f"Process {pid} should have exited"
 
     finally:
         # Cleanup
