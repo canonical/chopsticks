@@ -77,6 +77,7 @@ def build_locust_command(args) -> tuple[List[str], str]:
     # Distributed mode: leader (locust calls this "master")
     if leader:
         cmd.append("--master")
+        cmd.extend(["--master-bind-host", "0.0.0.0"])
         expect_workers = getattr(args, "expect_workers", None)
         if expect_workers:
             cmd.extend(["--expect-workers", str(expect_workers)])
