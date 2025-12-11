@@ -55,7 +55,9 @@ def validate_arguments(args) -> None:
         if args.users is None:
             raise ValueError("--users is required in headless mode (unless --worker)")
         if args.spawn_rate is None:
-            raise ValueError("--spawn-rate is required in headless mode (unless --worker)")
+            raise ValueError(
+                "--spawn-rate is required in headless mode (unless --worker)"
+            )
 
     if expect_workers and not leader:
         raise ValueError("--expect-workers can only be used with --leader")

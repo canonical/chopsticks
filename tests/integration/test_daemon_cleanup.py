@@ -88,12 +88,12 @@ def test_daemon_cleans_up_on_sigterm():
 
         # Verify files are cleaned up
         assert not pid_file.exists(), "PID file should be removed after SIGTERM"
-        assert not Path(
-            "/tmp/chopsticks_cleanup_test_state.json"
-        ).exists(), "State file should be removed"
-        assert not Path(
-            "/tmp/chopsticks_cleanup_test.sock"
-        ).exists(), "Socket file should be removed"
+        assert not Path("/tmp/chopsticks_cleanup_test_state.json").exists(), (
+            "State file should be removed"
+        )
+        assert not Path("/tmp/chopsticks_cleanup_test.sock").exists(), (
+            "Socket file should be removed"
+        )
 
         # Wait for process to fully exit (files are removed first, then process exits)
         max_process_wait = 5

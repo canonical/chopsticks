@@ -231,7 +231,9 @@ class TestValidateArguments:
             ]
         )
 
-        with pytest.raises(ValueError, match="Cannot specify both --leader and --worker"):
+        with pytest.raises(
+            ValueError, match="Cannot specify both --leader and --worker"
+        ):
             validate_arguments(args)
 
     def test_worker_headless_without_users(self):
@@ -269,7 +271,9 @@ class TestValidateArguments:
             ]
         )
 
-        with pytest.raises(ValueError, match="--expect-workers can only be used with --leader"):
+        with pytest.raises(
+            ValueError, match="--expect-workers can only be used with --leader"
+        ):
             validate_arguments(args)
 
 
