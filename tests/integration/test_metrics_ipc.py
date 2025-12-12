@@ -94,9 +94,9 @@ def test_metrics_ipc_with_persistent_server():
         print(f"Metrics start output: {result.stdout}")
         print(f"Metrics start stderr: {result.stderr}")
 
-        assert (
-            result.returncode == 0
-        ), f"Failed to start metrics server: {result.stderr}"
+        assert result.returncode == 0, (
+            f"Failed to start metrics server: {result.stderr}"
+        )
 
         # Give daemon a moment to fork and write PID file
         time.sleep(2)
