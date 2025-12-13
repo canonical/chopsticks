@@ -16,10 +16,6 @@ region: default
 # Driver to use
 driver: s5cmd
 
-# Driver-specific configuration
-driver_config:
-  s5cmd_path: s5cmd
-
 # Metrics configuration
 metrics:
   # Enable metrics collection

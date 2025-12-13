@@ -8,30 +8,48 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-snap:
+    name: Build Snap
+    runs-on: ubuntu-22.04
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: build
+      
+      - name: Upload snap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chopsticks-snap
+          path: ${{ steps.build.outputs.snap }}
+          retention-days: 7
+
   s3-large-objects-test:
     name: S3 Large Objects Test (Basic)
     runs-on: ubuntu-22.04
     timeout-minutes: 30
+    needs: build-snap
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
+      - name: Download snap artifact
+        uses: actions/download-artifact@v4
         with:
-          version: "latest"
+          name: chopsticks-snap
 
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: uv sync
+      - name: Install chopsticks snap
+        run: |
+          sudo snap install chopsticks_*.snap --dangerous --devmode
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y snapd jq
+          sudo apt-get install -y jq
 
       - name: Install MicroCeph
         run: |
@@ -65,16 +83,14 @@ jobs:
           echo "SECRET_KEY=${SECRET_KEY}" >> $GITHUB_ENV
           
           # Create S3 config WITHOUT metrics
-          mkdir -p config
-          cat > config/s3_config.yaml <<EOF
+          mkdir -p ~/config
+          cat > ~/config/s3_config.yaml <<EOF
           endpoint: http://127.0.0.1:80
           access_key: ${ACCESS_KEY}
           secret_key: ${SECRET_KEY}
           bucket: chopsticks-ci-test
           region: default
           driver: s5cmd
-          driver_config:
-            s5cmd_path: /usr/local/bin/s5cmd
           EOF
           
           # Create scenario config for CI test
@@ -99,14 +115,14 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ env.SECRET_KEY }}
           AWS_REGION: default
         run: |
-          s5cmd mb s3://chopsticks-ci-test
+          chopsticks.s5cmd mb s3://chopsticks-ci-test
 
       - name: Run S3 Large Object Test (2 minutes)
         run: |
-          uv run chopsticks run \
-            --workload-config config/s3_config.yaml \
-            --scenario-config config/ci_scenario_config.yaml \
-            -f src/chopsticks/scenarios/s3_large_objects.py \
+          chopsticks run \
+            --workload-config ~/config/s3_config.yaml \
+            --scenario-config ~/config/ci_scenario_config.yaml \
+            -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py \
             --headless \
             --users 3 \
             --spawn-rate 1 \
@@ -179,26 +195,25 @@ jobs:
     name: S3 Large Objects Test (With Metrics & Prometheus)
     runs-on: ubuntu-22.04
     timeout-minutes: 30
+    needs: build-snap
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
+      - name: Download snap artifact
+        uses: actions/download-artifact@v4
         with:
-          version: "latest"
+          name: chopsticks-snap
 
-      - name: Set up Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: uv sync
+      - name: Install chopsticks snap
+        run: |
+          sudo snap install chopsticks_*.snap --dangerous --devmode
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y snapd jq curl
+          sudo apt-get install -y jq curl
 
       - name: Install MicroCeph
         run: |
@@ -232,16 +247,14 @@ jobs:
           echo "SECRET_KEY=${SECRET_KEY}" >> $GITHUB_ENV
           
           # Create S3 config WITH metrics enabled and persistent mode
-          mkdir -p config
-          cat > config/s3_config.yaml <<EOF
+          mkdir -p ~/config
+          cat > ~/config/s3_config.yaml <<EOF
           endpoint: http://127.0.0.1:80
           access_key: ${ACCESS_KEY}
           secret_key: ${SECRET_KEY}
           bucket: chopsticks-ci-test
           region: default
           driver: s5cmd
-          driver_config:
-            s5cmd_path: /usr/local/bin/s5cmd
           
           # Enable metrics collection with persistent server
           metrics:
@@ -260,19 +273,11 @@ jobs:
           EOF
           
           # Create scenario config for CI test
-          cat > config/ci_scenario_config.yaml <<EOF
+          cat > ~/config/ci_scenario_config.yaml <<EOF
           s3_large_objects:
             object_size_mb: 1
             max_keys_in_memory: 5
           EOF
-
-      - name: Install s5cmd
-        run: |
-          curl -L -o /tmp/s5cmd.tar.gz \
-            https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz
-          sudo tar -xzf /tmp/s5cmd.tar.gz -C /usr/local/bin s5cmd
-          sudo chmod +x /usr/local/bin/s5cmd
-          s5cmd version
 
       - name: Create S3 bucket
         env:
@@ -281,16 +286,16 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ env.SECRET_KEY }}
           AWS_REGION: default
         run: |
-          s5cmd mb s3://chopsticks-ci-test
+          chopsticks.s5cmd mb s3://chopsticks-ci-test
 
       - name: Start persistent metrics server
         run: |
           # Start the persistent metrics endpoint
-          uv run chopsticks metrics start --config config/s3_config.yaml
+          chopsticks metrics start --config ~/config/s3_config.yaml
           
           # Verify it started
           sleep 2
-          uv run chopsticks metrics status --config config/s3_config.yaml
+          chopsticks metrics status --config ~/config/s3_config.yaml
           
           # Test endpoint is accessible
           curl -s http://localhost:8090/metrics | head -5
@@ -330,10 +335,10 @@ jobs:
 
       - name: Run S3 Large Object Test with Metrics (2 minutes)
         run: |
-          uv run chopsticks run \
-            --workload-config config/s3_config.yaml \
-            --scenario-config config/ci_scenario_config.yaml \
-            -f src/chopsticks/scenarios/s3_large_objects.py \
+          chopsticks run \
+            --workload-config ~/config/s3_config.yaml \
+            --scenario-config ~/config/ci_scenario_config.yaml \
+            -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py \
             --headless \
             --users 3 \
             --spawn-rate 1 \
@@ -440,7 +445,7 @@ jobs:
         if: always()
         run: |
           # Stop persistent metrics server
-          uv run chopsticks metrics stop --config config/s3_config.yaml || true
+          chopsticks metrics stop --config ~/config/s3_config.yaml || true
           
           # Stop Prometheus
           if [ -f /tmp/prometheus.pid ]; then
