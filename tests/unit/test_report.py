@@ -57,3 +57,28 @@ def test_preflight_report_summary():
     assert summary["host2"]["total"] == 1
     assert summary["host2"]["passed"] == 1
     assert summary["host2"]["failed"] == 0
+
+
+def test_save_to_file_creates_directories(tmp_path):
+    """Test that save_to_file creates parent directories."""
+    import tempfile
+    from pathlib import Path
+    
+    report = PreflightReport()
+    report.add_result(ProbeResult(probe_name="Test", host="host1", passed=True))
+    
+    # Create a nested path that doesn't exist
+    nested_path = tmp_path / "reports" / "phase0" / "test.yaml"
+    
+    # This should not raise FileNotFoundError
+    report.save_to_file(str(nested_path))
+    
+    # Verify file was created
+    assert nested_path.exists()
+    assert nested_path.is_file()
+    
+    # Verify content is valid YAML
+    import yaml
+    content = yaml.safe_load(nested_path.read_text())
+    assert "timestamp" in content
+    assert "results" in content

@@ -6,6 +6,7 @@ import subprocess
 from chopsticks.probes.cluster_health import check_microceph_status, check_ceph_status
 from chopsticks.probes.network import check_network_reachability
 from chopsticks.probes.resources import check_disk_capacity, check_host_resources
+from chopsticks.utils.report import ProbeResult
 
 
 @patch("chopsticks.probes.cluster_health.subprocess.run")
@@ -62,13 +63,19 @@ def test_check_ceph_status_health_warn(mock_run):
     assert "HEALTH_WARN" in result.message
 
 
-@patch("chopsticks.probes.network.subprocess.run")
-def test_check_network_reachability_success(mock_run):
+@patch("chopsticks.probes.network.RemoteExecutor")
+def test_check_network_reachability_success(mock_executor_class):
     """Test successful network reachability check."""
-    mock_run.return_value = MagicMock(
-        stdout="ping",
-        stderr="",
-        returncode=0,
+    mock_executor = MagicMock()
+    mock_executor_class.return_value = mock_executor
+    
+    # Mock successful connectivity test
+    mock_executor.test_connectivity.return_value = ProbeResult(
+        probe_name="Network Reachability",
+        host="host1",
+        passed=True,
+        message="Host reachable",
+        details={"method": "lxd"},
     )
     
     result = check_network_reachability("host1")

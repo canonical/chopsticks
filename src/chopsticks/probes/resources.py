@@ -4,15 +4,18 @@ import subprocess
 from typing import Any
 
 from chopsticks.utils.report import ProbeResult
+from chopsticks.utils.ssh import RemoteExecutor
 
 
-def check_disk_capacity(host: str) -> ProbeResult:
+def check_disk_capacity(host: str, executor: RemoteExecutor | None = None) -> ProbeResult:
     """Check disk capacity on the target host."""
+    if executor is None:
+        executor = RemoteExecutor(transport="lxd")
+    
     try:
-        result = subprocess.run(
-            ["lxc", "exec", host, "--", "df", "-h", "/"],
-            capture_output=True,
-            text=True,
+        result = executor.run(
+            host,
+            ["df", "-h", "/"],
             timeout=10,
             check=True,
         )
@@ -81,23 +84,24 @@ def check_disk_capacity(host: str) -> ProbeResult:
         )
 
 
-def check_host_resources(host: str) -> ProbeResult:
+def check_host_resources(host: str, executor: RemoteExecutor | None = None) -> ProbeResult:
     """Check host resource availability (CPU, memory)."""
+    if executor is None:
+        executor = RemoteExecutor(transport="lxd")
+    
     try:
         # Check memory
-        mem_result = subprocess.run(
-            ["lxc", "exec", host, "--", "free", "-h"],
-            capture_output=True,
-            text=True,
+        mem_result = executor.run(
+            host,
+            ["free", "-h"],
             timeout=10,
             check=True,
         )
         
         # Check CPU
-        cpu_result = subprocess.run(
-            ["lxc", "exec", host, "--", "nproc"],
-            capture_output=True,
-            text=True,
+        cpu_result = executor.run(
+            host,
+            ["nproc"],
             timeout=10,
             check=True,
         )

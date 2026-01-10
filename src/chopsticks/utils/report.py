@@ -53,6 +53,11 @@ class PreflightReport:
     
     def save_to_file(self, filepath: str) -> None:
         """Save report to YAML file."""
+        path = Path(filepath)
+        
+        # Create parent directories if they don't exist
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
         data = {
             "timestamp": self.timestamp,
             "summary": self.get_summary(),
@@ -69,4 +74,4 @@ class PreflightReport:
             ],
         }
         
-        Path(filepath).write_text(yaml.dump(data, default_flow_style=False, sort_keys=False))
+        path.write_text(yaml.dump(data, default_flow_style=False, sort_keys=False))

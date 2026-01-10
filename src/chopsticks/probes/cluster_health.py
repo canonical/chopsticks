@@ -4,15 +4,18 @@ import subprocess
 from typing import Any
 
 from chopsticks.utils.report import ProbeResult
+from chopsticks.utils.ssh import RemoteExecutor
 
 
-def check_microceph_status(host: str) -> ProbeResult:
+def check_microceph_status(host: str, executor: RemoteExecutor | None = None) -> ProbeResult:
     """Check MicroCeph status on the target host."""
+    if executor is None:
+        executor = RemoteExecutor(transport="lxd")
+    
     try:
-        result = subprocess.run(
-            ["lxc", "exec", host, "--", "microceph", "status"],
-            capture_output=True,
-            text=True,
+        result = executor.run(
+            host,
+            ["microceph", "status"],
             timeout=30,
             check=True,
         )
@@ -64,13 +67,15 @@ def check_microceph_status(host: str) -> ProbeResult:
         )
 
 
-def check_ceph_status(host: str) -> ProbeResult:
+def check_ceph_status(host: str, executor: RemoteExecutor | None = None) -> ProbeResult:
     """Check detailed Ceph status on the target host."""
+    if executor is None:
+        executor = RemoteExecutor(transport="lxd")
+    
     try:
-        result = subprocess.run(
-            ["lxc", "exec", host, "--", "ceph", "status"],
-            capture_output=True,
-            text=True,
+        result = executor.run(
+            host,
+            ["ceph", "status"],
             timeout=30,
             check=True,
         )

@@ -11,6 +11,7 @@ from chopsticks.probes.cluster_health import check_microceph_status, check_ceph_
 from chopsticks.probes.network import check_network_reachability
 from chopsticks.probes.resources import check_disk_capacity, check_host_resources
 from chopsticks.utils.report import PreflightReport, ProbeResult
+from chopsticks.utils.ssh import RemoteExecutor
 
 
 console = Console()
@@ -24,6 +25,17 @@ console = Console()
     help="Target host(s) to check (can be specified multiple times)",
 )
 @click.option(
+    "--transport",
+    type=click.Choice(["ssh", "lxd"]),
+    default="lxd",
+    help="Transport method: ssh for production, lxd for development (default: lxd)",
+)
+@click.option(
+    "--user",
+    default="ubuntu",
+    help="SSH username (ignored for lxd transport, default: ubuntu)",
+)
+@click.option(
     "--skip-ceph-status",
     is_flag=True,
     help="Skip detailed 'ceph status' check",
@@ -33,9 +45,18 @@ console = Console()
     type=click.Path(),
     help="Write structured report to file (YAML format)",
 )
-def preflight(host: tuple[str, ...], skip_ceph_status: bool, output: Optional[str]) -> None:
+def preflight(
+    host: tuple[str, ...],
+    transport: str,
+    user: str,
+    skip_ceph_status: bool,
+    output: Optional[str],
+) -> None:
     """Run pre-flight checks against MicroCeph cluster."""
     console.print("\n[bold cyan]Chopsticks Pre-Flight Checks[/bold cyan]\n")
+    
+    # Create remote executor for this run
+    executor = RemoteExecutor(transport=transport, user=user)
     
     report = PreflightReport()
     
@@ -44,27 +65,27 @@ def preflight(host: tuple[str, ...], skip_ceph_status: bool, output: Optional[st
         console.print(f"[bold]Checking host: {target_host}[/bold]")
         
         # Cluster health checks
-        result = check_microceph_status(target_host)
+        result = check_microceph_status(target_host, executor)
         report.add_result(result)
         _display_probe_result(result)
         
         if not skip_ceph_status:
-            result = check_ceph_status(target_host)
+            result = check_ceph_status(target_host, executor)
             report.add_result(result)
             _display_probe_result(result)
         
         # Network reachability
-        result = check_network_reachability(target_host)
+        result = check_network_reachability(target_host, executor)
         report.add_result(result)
         _display_probe_result(result)
         
         # Disk capacity
-        result = check_disk_capacity(target_host)
+        result = check_disk_capacity(target_host, executor)
         report.add_result(result)
         _display_probe_result(result)
         
         # Host resources
-        result = check_host_resources(target_host)
+        result = check_host_resources(target_host, executor)
         report.add_result(result)
         _display_probe_result(result)
         

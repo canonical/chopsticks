@@ -37,6 +37,7 @@ markers = [
     "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
 ]
 testpaths = ["tests"]
+addopts = "-m 'not integration'"  # Skip integration tests by default
 
 [dependency-groups]
 dev = [
