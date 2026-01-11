@@ -135,7 +135,8 @@ class RemoteExecutor:
                 timeout=15,
             )
             
-            if result.returncode == 0 and result.stdout.strip() == "reachable":
+            # Check for marker in output (tolerates MOTD and banner text)
+            if result.returncode == 0 and "reachable" in result.stdout:
                 details["ssh_handshake"] = "success"
                 return ProbeResult(
                     probe_name="Network Reachability",
@@ -146,7 +147,9 @@ class RemoteExecutor:
                 )
             else:
                 details["ssh_handshake"] = "failed"
-                details["error"] = result.stderr.strip()
+                details["error"] = result.stderr.strip() if result.stderr else "No error output"
+                if result.stdout:
+                    details["stdout_sample"] = result.stdout[:200]
                 return ProbeResult(
                     probe_name="Network Reachability",
                     host=host,
