@@ -159,18 +159,18 @@ def get_microceph_osd_paths(host: str, executor: RemoteExecutor) -> list[str]:
             ["ceph", "osd", "df", "--format", "json"],
             timeout=15,
             check=False,
+            use_sudo=True,  # Ceph commands require sudo
         )
         
         if result.returncode == 0:
             try:
                 data = json.loads(result.stdout)
-                # Get number of OSDs from the data
-                osd_count = len(data.get("nodes", []))
-                
-                # Enumerate OSD data directories
-                for osd_id in range(osd_count):
-                    osd_path = f"/var/snap/microceph/common/data/osd/ceph-{osd_id + 1}"
-                    paths.append(osd_path)
+                # Extract actual OSD IDs from the payload (Fix Round 4 Finding #2)
+                for node in data.get("nodes", []):
+                    osd_id = node.get("id")
+                    if osd_id is not None:
+                        osd_path = f"/var/snap/microceph/common/data/osd/ceph-{osd_id}"
+                        paths.append(osd_path)
             except (json.JSONDecodeError, KeyError):
                 pass
         
@@ -181,6 +181,7 @@ def get_microceph_osd_paths(host: str, executor: RemoteExecutor) -> list[str]:
                 ["ls", "-1", "/var/snap/microceph/common/data/osd/"],
                 timeout=10,
                 check=False,
+                use_sudo=True,  # Directory may require elevated privileges
             )
             
             if result.returncode == 0:

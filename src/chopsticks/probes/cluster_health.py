@@ -18,6 +18,7 @@ def check_microceph_status(host: str, executor: RemoteExecutor | None = None) ->
             ["microceph", "status"],
             timeout=30,
             check=True,
+            use_sudo=True,  # MicroCeph commands require sudo
         )
         
         output = result.stdout.strip()
@@ -78,6 +79,7 @@ def check_ceph_status(host: str, executor: RemoteExecutor | None = None) -> Prob
             ["ceph", "status"],
             timeout=30,
             check=True,
+            use_sudo=True,  # Ceph commands require sudo
         )
         
         output = result.stdout.strip()

@@ -28,6 +28,7 @@ class RemoteExecutor:
         command: list[str],
         timeout: int = 30,
         check: bool = True,
+        use_sudo: bool = False,
     ) -> subprocess.CompletedProcess[str]:
         """Execute command on remote host.
         
@@ -36,10 +37,15 @@ class RemoteExecutor:
             command: Command to execute as list of strings
             timeout: Command timeout in seconds
             check: Whether to raise exception on non-zero exit
+            use_sudo: Whether to wrap command with 'sudo -n' (non-interactive)
             
         Returns:
             CompletedProcess with stdout, stderr, and return code
         """
+        # Wrap command with sudo if requested
+        if use_sudo:
+            command = ["sudo", "-n"] + command
+        
         if self.transport == "ssh":
             return self._run_ssh(host, command, timeout, check)
         else:  # lxd

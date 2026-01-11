@@ -183,7 +183,7 @@ def test_preflight_client_01(integration_env):
     # Should fail for client-01 which doesn't have MicroCeph
     assert result.returncode != 0
     assert "Pre-flight checks failed" in result.stdout
-    assert "Command not found" in result.stdout
+    assert "command not found" in result.stdout  # Updated for sudo wrapper output
 
 
 @pytest.mark.integration
