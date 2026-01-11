@@ -10,8 +10,10 @@ from chopsticks.probes.resources import (
     check_osd_disk_capacity,
     check_host_resources,
     get_microceph_osd_paths,
+    parse_memory_to_gb,
 )
 from chopsticks.utils.report import ProbeResult
+import pytest
 
 
 @patch("chopsticks.probes.cluster_health.subprocess.run")
@@ -257,3 +259,173 @@ def test_check_osd_disk_capacity_custom_paths():
     
     assert result.passed is True
     assert result.details["osd_count"] == 1
+
+# Memory Parsing Tests
+def test_parse_memory_to_gb_bytes():
+    """Test parsing bytes to GB."""
+    assert parse_memory_to_gb("1073741824") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("2147483648B") == pytest.approx(2.0, rel=1e-2)
+
+
+def test_parse_memory_to_gb_kilobytes():
+    """Test parsing kilobytes to GB."""
+    assert parse_memory_to_gb("1048576K") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("1048576KB") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("1048576KiB") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("2097152Ki") == pytest.approx(2.0, rel=1e-2)
+
+
+def test_parse_memory_to_gb_megabytes():
+    """Test parsing megabytes to GB."""
+    assert parse_memory_to_gb("1024M") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("1024MB") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("1024MiB") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("2048Mi") == pytest.approx(2.0, rel=1e-2)
+    assert parse_memory_to_gb("512Mi") == pytest.approx(0.5, rel=1e-2)
+
+
+def test_parse_memory_to_gb_gigabytes():
+    """Test parsing gigabytes to GB."""
+    assert parse_memory_to_gb("1G") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("1GB") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("1GiB") == pytest.approx(1.0, rel=1e-2)
+    assert parse_memory_to_gb("16Gi") == pytest.approx(16.0, rel=1e-2)
+    assert parse_memory_to_gb("2.5GB") == pytest.approx(2.5, rel=1e-2)
+
+
+def test_parse_memory_to_gb_terabytes():
+    """Test parsing terabytes to GB."""
+    assert parse_memory_to_gb("1T") == pytest.approx(1024.0, rel=1e-2)
+    assert parse_memory_to_gb("1TB") == pytest.approx(1024.0, rel=1e-2)
+    assert parse_memory_to_gb("1TiB") == pytest.approx(1024.0, rel=1e-2)
+    assert parse_memory_to_gb("2Ti") == pytest.approx(2048.0, rel=1e-2)
+
+
+def test_parse_memory_to_gb_with_spaces():
+    """Test parsing memory values with spaces."""
+    assert parse_memory_to_gb("16 Gi") == pytest.approx(16.0, rel=1e-2)
+    assert parse_memory_to_gb("2048 Mi") == pytest.approx(2.0, rel=1e-2)
+    assert parse_memory_to_gb("512 MB") == pytest.approx(0.5, rel=1e-2)
+
+
+def test_parse_memory_to_gb_case_insensitive():
+    """Test parsing memory values is case insensitive."""
+    assert parse_memory_to_gb("16gi") == pytest.approx(16.0, rel=1e-2)
+    assert parse_memory_to_gb("16GI") == pytest.approx(16.0, rel=1e-2)
+    assert parse_memory_to_gb("16Gi") == pytest.approx(16.0, rel=1e-2)
+
+
+def test_parse_memory_to_gb_invalid_format():
+    """Test parsing invalid memory format raises ValueError."""
+    with pytest.raises(ValueError):
+        parse_memory_to_gb("invalid")
+    with pytest.raises(ValueError):
+        parse_memory_to_gb("16 invalid")
+    with pytest.raises(ValueError):
+        parse_memory_to_gb("")
+
+
+def test_parse_memory_to_gb_unknown_unit():
+    """Test parsing unknown unit raises ValueError."""
+    with pytest.raises(ValueError):
+        parse_memory_to_gb("16XB")
+    with pytest.raises(ValueError):
+        parse_memory_to_gb("16ZZ")
+
+
+# Memory Validation Tests
+@patch("chopsticks.probes.resources.subprocess.run")
+def test_check_host_resources_memory_sufficient(mock_run):
+    """Test host resources check with sufficient memory."""
+    def mock_subprocess_run(cmd, *args, **kwargs):
+        if "free" in cmd:
+            return MagicMock(stdout="              total        used        free\nMem:           4Gi        2Gi        2Gi")
+        elif "nproc" in cmd:
+            return MagicMock(stdout="4")
+        return MagicMock(stdout="")
+    
+    mock_run.side_effect = mock_subprocess_run
+    
+    result = check_host_resources("host1", min_cpu_cores=2, min_memory_gb=2.0)
+    
+    assert result.passed is True
+    assert result.host == "host1"
+    assert "4.00 GB" in result.message or "4 GB" in result.message
+    assert "✓" in result.message
+
+
+@patch("chopsticks.probes.resources.subprocess.run")
+def test_check_host_resources_memory_insufficient(mock_run):
+    """Test host resources check with insufficient memory."""
+    def mock_subprocess_run(cmd, *args, **kwargs):
+        if "free" in cmd:
+            return MagicMock(stdout="              total        used        free\nMem:           512Mi      256Mi      256Mi")
+        elif "nproc" in cmd:
+            return MagicMock(stdout="4")
+        return MagicMock(stdout="")
+    
+    mock_run.side_effect = mock_subprocess_run
+    
+    result = check_host_resources("host1", min_cpu_cores=2, min_memory_gb=2.0)
+    
+    assert result.passed is False
+    assert "Memory:" in result.message
+    assert "minimum: 2" in result.message.lower() or "minimum: 2.0" in result.message.lower()
+
+
+@patch("chopsticks.probes.resources.subprocess.run")
+def test_check_host_resources_cpu_and_memory_insufficient(mock_run):
+    """Test host resources check with both CPU and memory insufficient."""
+    def mock_subprocess_run(cmd, *args, **kwargs):
+        if "free" in cmd:
+            return MagicMock(stdout="              total        used        free\nMem:           1Gi        512Mi      512Mi")
+        elif "nproc" in cmd:
+            return MagicMock(stdout="1")
+        return MagicMock(stdout="")
+    
+    mock_run.side_effect = mock_subprocess_run
+    
+    result = check_host_resources("host1", min_cpu_cores=2, min_memory_gb=2.0)
+    
+    assert result.passed is False
+    assert "CPU:" in result.message
+    assert "Memory:" in result.message
+
+
+@patch("chopsticks.probes.resources.subprocess.run")
+def test_check_host_resources_custom_thresholds(mock_run):
+    """Test host resources check with custom thresholds."""
+    def mock_subprocess_run(cmd, *args, **kwargs):
+        if "free" in cmd:
+            return MagicMock(stdout="              total        used        free\nMem:           8Gi        4Gi        4Gi")
+        elif "nproc" in cmd:
+            return MagicMock(stdout="8")
+        return MagicMock(stdout="")
+    
+    mock_run.side_effect = mock_subprocess_run
+    
+    # Should pass with 4 CPU / 4GB thresholds
+    result = check_host_resources("host1", min_cpu_cores=4, min_memory_gb=4.0)
+    assert result.passed is True
+    
+    # Should fail with 16 CPU / 16GB thresholds
+    result = check_host_resources("host1", min_cpu_cores=16, min_memory_gb=16.0)
+    assert result.passed is False
+
+
+@patch("chopsticks.probes.resources.subprocess.run")
+def test_check_host_resources_memory_parse_error(mock_run):
+    """Test host resources check handles memory parse errors."""
+    def mock_subprocess_run(cmd, *args, **kwargs):
+        if "free" in cmd:
+            return MagicMock(stdout="              total        used        free\nMem:           INVALID    8Gi        8Gi")
+        elif "nproc" in cmd:
+            return MagicMock(stdout="4")
+        return MagicMock(stdout="")
+    
+    mock_run.side_effect = mock_subprocess_run
+    
+    result = check_host_resources("host1", min_cpu_cores=2, min_memory_gb=2.0)
+    
+    assert result.passed is False
+    assert "Could not parse memory" in result.message or "memory" in result.message.lower()

@@ -1,12 +1,71 @@
 """Resource availability probe implementations."""
 
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from chopsticks.utils.report import ProbeResult
 from chopsticks.utils.ssh import RemoteExecutor
+
+
+def parse_memory_to_gb(memory_str: str) -> float:
+    """Parse memory string to GB value.
+    
+    Handles various units: B, KB, MB, GB, KiB, MiB, GiB, etc.
+    Examples:
+        "16Gi" -> 16.0
+        "2048Mi" -> 2.0
+        "512M" -> 0.5
+        "1024K" -> 0.001
+    
+    Args:
+        memory_str: Memory value with unit (e.g., "16Gi", "2048Mi")
+    
+    Returns:
+        Memory value in GB
+    
+    Raises:
+        ValueError: If format is unrecognized
+    """
+    # Remove whitespace
+    memory_str = memory_str.strip()
+    
+    # Match number and unit
+    match = re.match(r'^([\d.]+)\s*([A-Za-z]+)?$', memory_str)
+    if not match:
+        raise ValueError(f"Cannot parse memory format: {memory_str}")
+    
+    value = float(match.group(1))
+    unit = (match.group(2) or 'B').upper()
+    
+    # Conversion factors to GB
+    conversions = {
+        'B': 1 / (1024 ** 3),
+        'K': 1 / (1024 ** 2),
+        'KB': 1 / (1024 ** 2),
+        'KIB': 1 / (1024 ** 2),
+        'M': 1 / 1024,
+        'MB': 1 / 1024,
+        'MIB': 1 / 1024,
+        'G': 1,
+        'GB': 1,
+        'GIB': 1,
+        'T': 1024,
+        'TB': 1024,
+        'TIB': 1024,
+        # Handle lowercase 'i' suffix
+        'KI': 1 / (1024 ** 2),
+        'MI': 1 / 1024,
+        'GI': 1,
+        'TI': 1024,
+    }
+    
+    if unit not in conversions:
+        raise ValueError(f"Unknown memory unit: {unit}")
+    
+    return value * conversions[unit]
 
 
 def check_root_disk_capacity(host: str, executor: RemoteExecutor | None = None) -> ProbeResult:
@@ -245,8 +304,20 @@ def check_osd_disk_capacity(
         )
 
 
-def check_host_resources(host: str, executor: RemoteExecutor | None = None) -> ProbeResult:
-    """Check host resource availability (CPU, memory)."""
+def check_host_resources(
+    host: str,
+    executor: RemoteExecutor | None = None,
+    min_cpu_cores: int = 2,
+    min_memory_gb: float = 2.0,
+) -> ProbeResult:
+    """Check host resource availability (CPU, memory).
+    
+    Args:
+        host: Target hostname
+        executor: Remote executor instance
+        min_cpu_cores: Minimum required CPU cores (default: 2)
+        min_memory_gb: Minimum required memory in GB (default: 2.0 for MicroCeph)
+    """
     if executor is None:
         executor = RemoteExecutor(transport="lxd")
     
@@ -271,33 +342,57 @@ def check_host_resources(host: str, executor: RemoteExecutor | None = None) -> P
         
         # Parse memory info
         mem_lines = mem_result.stdout.strip().split("\n")
+        mem_total_gb = 0.0
         if len(mem_lines) >= 2:
             mem_fields = mem_lines[1].split()
             if len(mem_fields) >= 2:
                 details["memory_total"] = mem_fields[1]
                 details["memory_used"] = mem_fields[2] if len(mem_fields) > 2 else "N/A"
                 details["memory_available"] = mem_fields[-1]
+                
+                # Parse total memory to GB for validation
+                try:
+                    mem_total_gb = parse_memory_to_gb(mem_fields[1])
+                    details["memory_total_gb"] = f"{mem_total_gb:.2f}"
+                except ValueError as e:
+                    details["memory_parse_error"] = str(e)
         
         # Parse CPU info
         cpu_count = cpu_result.stdout.strip()
         details["cpu_cores"] = cpu_count
         
-        # Basic validation: ensure we have at least 2 cores and some memory
+        # Validation with thresholds
         passed = True
         messages = []
         
+        # Validate CPU
         try:
-            if int(cpu_count) < 2:
+            cpu_int = int(cpu_count)
+            if cpu_int < min_cpu_cores:
                 passed = False
-                messages.append(f"Low CPU count: {cpu_count} cores")
+                messages.append(f"CPU: {cpu_int} cores (minimum: {min_cpu_cores})")
+            else:
+                messages.append(f"CPU: {cpu_int} cores (minimum: {min_cpu_cores}) ✓")
         except ValueError:
             passed = False
             messages.append("Could not parse CPU count")
         
-        if passed:
-            message = f"Host resources adequate ({cpu_count} cores)"
+        # Validate memory
+        if mem_total_gb > 0:
+            if mem_total_gb < min_memory_gb:
+                passed = False
+                messages.append(f"Memory: {mem_total_gb:.2f} GB (minimum: {min_memory_gb} GB)")
+            else:
+                messages.append(f"Memory: {mem_total_gb:.2f} GB (minimum: {min_memory_gb} GB) ✓")
         else:
-            message = "; ".join(messages)
+            passed = False
+            messages.append("Could not parse memory total")
+        
+        # Store thresholds in details
+        details["min_cpu_cores"] = min_cpu_cores
+        details["min_memory_gb"] = min_memory_gb
+        
+        message = "; ".join(messages)
         
         return ProbeResult(
             probe_name="Host Resources",

@@ -1,4 +1,9 @@
-"""Integration tests for pre-flight checks."""
+"""Integration tests for pre-flight checks.
+
+All integration tests use the integration_env fixture as the single validation point.
+The fixture checks for LXD, uv, and required VMs at runtime, providing actionable
+error messages if any dependency is missing.
+"""
 
 import json
 import shutil
@@ -8,7 +13,7 @@ from pathlib import Path
 import pytest
 
 
-# Helper functions for skip guards
+# Helper functions used by integration_env fixture
 def lxd_available() -> bool:
     """Check if LXD is available."""
     return shutil.which("lxc") is not None
@@ -19,8 +24,44 @@ def uv_available() -> bool:
     return shutil.which("uv") is not None
 
 
+def get_vm_status(hostname: str) -> str:
+    """Get detailed VM status (running, stopped, frozen, not_found).
+    
+    Returns:
+        "running" - VM exists and is running
+        "stopped" - VM exists but is stopped/shutdown
+        "frozen" - VM exists but is frozen
+        "not_found" - VM does not exist
+        "unknown" - Unable to determine status
+    """
+    if not lxd_available():
+        return "not_found"
+    
+    try:
+        result = subprocess.run(
+            ["lxc", "list", hostname, "--format", "json"],
+            capture_output=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return "not_found"
+        
+        hosts = json.loads(result.stdout)
+        if not hosts:
+            return "not_found"
+        
+        state = hosts[0].get("state", {})
+        status = state.get("status", "unknown").lower()
+        return status
+    except Exception:
+        return "unknown"
+
+
 def host_exists(hostname: str) -> bool:
-    """Check if a specific LXD host exists."""
+    """Check if a specific LXD host exists and is running.
+    
+    Returns True only if VM exists AND is in Running state.
+    """
     if not lxd_available():
         return False
     try:
@@ -32,14 +73,17 @@ def host_exists(hostname: str) -> bool:
         if result.returncode != 0:
             return False
         hosts = json.loads(result.stdout)
-        return len(hosts) > 0 and hosts[0].get("name") == hostname
+        if not hosts or hosts[0].get("name") != hostname:
+            return False
+        
+        # Check if VM is running
+        state = hosts[0].get("state", {})
+        status = state.get("status", "").upper()
+        
+        # Require Running state
+        return status == "RUNNING"
     except Exception:
         return False
-
-
-def hosts_available() -> bool:
-    """Check if test hosts exist."""
-    return host_exists("storage-01") or host_exists("client-01")
 
 
 # Dynamic project root for portable tests (Fix Finding #2)
@@ -48,10 +92,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.fixture
 def integration_env():
-    """Validate integration test environment with actionable error messages.
+    """Validate integration test environment with state-aware error messages.
     
-    This fixture checks for all required dependencies and provides clear
-    installation instructions if anything is missing.
+    This is the single validation point for all integration tests. It checks:
+    - LXD availability
+    - uv availability  
+    - Required VMs exist AND are running
+    
+    Provides actionable error messages with specific remediation steps.
     """
     missing = []
     
@@ -61,13 +109,20 @@ def integration_env():
     if not uv_available():
         missing.append("uv - Install: curl -LsSf https://astral.sh/uv/install.sh | sh")
     
-    # Check for specific required hosts
+    # Check for specific required hosts with state awareness
     required_hosts = ["storage-01", "client-01"]
     for hostname in required_hosts:
         if not host_exists(hostname):
-            missing.append(
-                f"LXD VM '{hostname}' - See tests/integration/README.md for setup"
-            )
+            # Provide detailed reason based on VM state
+            status = get_vm_status(hostname)
+            if status == "stopped":
+                missing.append(f"VM '{hostname}' is stopped - Start: lxc start {hostname}")
+            elif status == "frozen":
+                missing.append(f"VM '{hostname}' is frozen - Resume: lxc start {hostname}")
+            elif status == "not_found":
+                missing.append(f"VM '{hostname}' not found - See tests/integration/README.md")
+            else:
+                missing.append(f"VM '{hostname}' in unexpected state: {status}")
     
     if missing:
         skip_msg = "Missing integration test dependencies:\n  - " + "\n  - ".join(missing)
@@ -99,9 +154,6 @@ def test_preflight_requires_host():
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not lxd_available(), reason="LXD not available")
-@pytest.mark.skipif(not uv_available(), reason="uv not installed")
-@pytest.mark.skipif(not hosts_available(), reason="Test VMs not running")
 def test_preflight_storage_01(integration_env):
     """Test preflight against storage-01 (requires LXD VM to be running)."""
     result = subprocess.run(
@@ -119,9 +171,6 @@ def test_preflight_storage_01(integration_env):
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not lxd_available(), reason="LXD not available")
-@pytest.mark.skipif(not uv_available(), reason="uv not installed")
-@pytest.mark.skipif(not hosts_available(), reason="Test VMs not running")
 def test_preflight_client_01(integration_env):
     """Test preflight against client-01 (requires LXD VM to be running)."""
     result = subprocess.run(
@@ -138,9 +187,6 @@ def test_preflight_client_01(integration_env):
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not lxd_available(), reason="LXD not available")
-@pytest.mark.skipif(not uv_available(), reason="uv not installed")
-@pytest.mark.skipif(not hosts_available(), reason="Test VMs not running")
 def test_preflight_multiple_hosts(integration_env):
     """Test preflight against multiple hosts."""
     result = subprocess.run(

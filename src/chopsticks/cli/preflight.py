@@ -56,6 +56,18 @@ console = Console()
     help="OSD disk usage warning threshold percentage (default: 85, Ceph nearfull)",
 )
 @click.option(
+    "--min-cpu",
+    type=int,
+    default=2,
+    help="Minimum required CPU cores (default: 2 for MicroCeph)",
+)
+@click.option(
+    "--min-memory",
+    type=float,
+    default=2.0,
+    help="Minimum required memory in GB (default: 2.0 for MicroCeph)",
+)
+@click.option(
     "--output",
     type=click.Path(),
     help="Write structured report to file (YAML format)",
@@ -67,6 +79,8 @@ def preflight(
     skip_ceph_status: bool,
     osd_path: tuple[str, ...],
     osd_threshold: int,
+    min_cpu: int,
+    min_memory: float,
     output: Optional[str],
 ) -> None:
     """Run pre-flight checks against MicroCeph cluster."""
@@ -113,7 +127,12 @@ def preflight(
         _display_probe_result(result)
         
         # Host resources
-        result = check_host_resources(target_host, executor)
+        result = check_host_resources(
+            target_host,
+            executor,
+            min_cpu_cores=min_cpu,
+            min_memory_gb=min_memory,
+        )
         report.add_result(result)
         _display_probe_result(result)
         
