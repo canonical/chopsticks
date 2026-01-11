@@ -5,7 +5,12 @@ import subprocess
 
 from chopsticks.probes.cluster_health import check_microceph_status, check_ceph_status
 from chopsticks.probes.network import check_network_reachability
-from chopsticks.probes.resources import check_disk_capacity, check_host_resources
+from chopsticks.probes.resources import (
+    check_root_disk_capacity,
+    check_osd_disk_capacity,
+    check_host_resources,
+    get_microceph_osd_paths,
+)
 from chopsticks.utils.report import ProbeResult
 
 
@@ -85,28 +90,29 @@ def test_check_network_reachability_success(mock_executor_class):
 
 
 @patch("chopsticks.probes.resources.subprocess.run")
-def test_check_disk_capacity_normal(mock_run):
-    """Test disk capacity check with normal usage."""
+def test_check_root_disk_capacity_normal(mock_run):
+    """Test root disk capacity check with normal usage."""
     mock_run.return_value = MagicMock(
         stdout="Filesystem      Size  Used Avail Use%\n/dev/sda1       100G   30G   70G  30%",
         stderr="",
     )
     
-    result = check_disk_capacity("host1")
+    result = check_root_disk_capacity("host1")
     
     assert result.passed is True
     assert result.host == "host1"
+    assert "Root" in result.probe_name
 
 
 @patch("chopsticks.probes.resources.subprocess.run")
-def test_check_disk_capacity_high_usage(mock_run):
-    """Test disk capacity check with high usage."""
+def test_check_root_disk_capacity_high_usage(mock_run):
+    """Test root disk capacity check with high usage."""
     mock_run.return_value = MagicMock(
         stdout="Filesystem      Size  Used Avail Use%\n/dev/sda1       100G   95G    5G  95%",
         stderr="",
     )
     
-    result = check_disk_capacity("host1")
+    result = check_root_disk_capacity("host1")
     
     assert result.passed is False
     assert "high" in result.message.lower()
@@ -146,3 +152,108 @@ def test_check_host_resources_low_cpu(mock_run):
     
     assert result.passed is False
     assert "cpu" in result.message.lower()
+
+
+def test_get_microceph_osd_paths_with_ceph_data():
+    """Test OSD path discovery from ceph osd df command."""
+    mock_executor = MagicMock()
+    mock_executor.run.return_value = MagicMock(
+        returncode=0,
+        stdout='{"nodes": [{"id": 1}, {"id": 2}, {"id": 3}]}',
+    )
+    
+    paths = get_microceph_osd_paths("host1", mock_executor)
+    
+    assert len(paths) == 3
+    assert "/var/snap/microceph/common/data/osd/ceph-1" in paths
+    assert "/var/snap/microceph/common/data/osd/ceph-2" in paths
+    assert "/var/snap/microceph/common/data/osd/ceph-3" in paths
+
+
+def test_get_microceph_osd_paths_with_ls_fallback():
+    """Test OSD path discovery via directory enumeration fallback."""
+    mock_executor = MagicMock()
+    
+    def mock_run(host, cmd, **kwargs):
+        if "ceph" in cmd:
+            return MagicMock(returncode=1, stdout="")
+        elif "ls" in cmd:
+            return MagicMock(returncode=0, stdout="ceph-1\nceph-2\n")
+        return MagicMock(returncode=1, stdout="")
+    
+    mock_executor.run.side_effect = mock_run
+    
+    paths = get_microceph_osd_paths("host1", mock_executor)
+    
+    assert len(paths) == 2
+    assert "/var/snap/microceph/common/data/osd/ceph-1" in paths
+    assert "/var/snap/microceph/common/data/osd/ceph-2" in paths
+
+
+def test_check_osd_disk_capacity_no_osds():
+    """Test OSD disk check when no OSDs found."""
+    mock_executor = MagicMock()
+    mock_executor.run.return_value = MagicMock(returncode=1, stdout="")
+    
+    result = check_osd_disk_capacity("host1", mock_executor)
+    
+    assert result.passed is True
+    assert "No MicroCeph OSDs found" in result.message
+    assert result.details["osd_count"] == 0
+
+
+def test_check_osd_disk_capacity_all_healthy():
+    """Test OSD disk check with all OSDs below threshold."""
+    mock_executor = MagicMock()
+    
+    # Mock get_microceph_osd_paths to return test paths
+    test_paths = [
+        "/var/snap/microceph/common/data/osd/ceph-1",
+        "/var/snap/microceph/common/data/osd/ceph-2",
+    ]
+    
+    with patch("chopsticks.probes.resources.get_microceph_osd_paths", return_value=test_paths):
+        mock_executor.run.return_value = MagicMock(
+            returncode=0,
+            stdout="Filesystem      Size  Used Avail Use%\n/dev/sdb1       100G   50G   50G  50%",
+        )
+        
+        result = check_osd_disk_capacity("host1", mock_executor, threshold=85)
+        
+        assert result.passed is True
+        assert "All 2 OSD(s)" in result.message
+        assert result.details["osd_count"] == 2
+
+
+def test_check_osd_disk_capacity_threshold_exceeded():
+    """Test OSD disk check with OSD exceeding threshold."""
+    mock_executor = MagicMock()
+    
+    test_paths = ["/var/snap/microceph/common/data/osd/ceph-1"]
+    
+    with patch("chopsticks.probes.resources.get_microceph_osd_paths", return_value=test_paths):
+        mock_executor.run.return_value = MagicMock(
+            returncode=0,
+            stdout="Filesystem      Size  Used Avail Use%\n/dev/sdb1       100G   90G   10G  90%",
+        )
+        
+        result = check_osd_disk_capacity("host1", mock_executor, threshold=85)
+        
+        assert result.passed is False
+        assert "threshold exceeded" in result.message
+        assert "90%" in result.message
+
+
+def test_check_osd_disk_capacity_custom_paths():
+    """Test OSD disk check with custom paths."""
+    mock_executor = MagicMock()
+    mock_executor.run.return_value = MagicMock(
+        returncode=0,
+        stdout="Filesystem      Size  Used Avail Use%\n/dev/sdc1       100G   30G   70G  30%",
+    )
+    
+    custom_paths = ["/custom/osd/path"]
+    result = check_osd_disk_capacity("host1", mock_executor, custom_paths=custom_paths)
+    
+    assert result.passed is True
+    assert result.details["osd_count"] == 1

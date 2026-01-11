@@ -19,27 +19,59 @@ def uv_available() -> bool:
     return shutil.which("uv") is not None
 
 
-def hosts_available() -> bool:
-    """Check if test hosts exist."""
+def host_exists(hostname: str) -> bool:
+    """Check if a specific LXD host exists."""
     if not lxd_available():
         return False
     try:
         result = subprocess.run(
-            ["lxc", "list", "--format", "json"],
+            ["lxc", "list", hostname, "--format", "json"],
             capture_output=True,
             timeout=5,
         )
         if result.returncode != 0:
             return False
         hosts = json.loads(result.stdout)
-        host_names = {h["name"] for h in hosts}
-        return "storage-01" in host_names or "client-01" in host_names
+        return len(hosts) > 0 and hosts[0].get("name") == hostname
     except Exception:
         return False
 
 
+def hosts_available() -> bool:
+    """Check if test hosts exist."""
+    return host_exists("storage-01") or host_exists("client-01")
+
+
 # Dynamic project root for portable tests (Fix Finding #2)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture
+def integration_env():
+    """Validate integration test environment with actionable error messages.
+    
+    This fixture checks for all required dependencies and provides clear
+    installation instructions if anything is missing.
+    """
+    missing = []
+    
+    if not lxd_available():
+        missing.append("LXD - Install: snap install lxd && lxd init --auto")
+    
+    if not uv_available():
+        missing.append("uv - Install: curl -LsSf https://astral.sh/uv/install.sh | sh")
+    
+    # Check for specific required hosts
+    required_hosts = ["storage-01", "client-01"]
+    for hostname in required_hosts:
+        if not host_exists(hostname):
+            missing.append(
+                f"LXD VM '{hostname}' - See tests/integration/README.md for setup"
+            )
+    
+    if missing:
+        skip_msg = "Missing integration test dependencies:\n  - " + "\n  - ".join(missing)
+        pytest.skip(skip_msg)
 
 
 def test_preflight_cli_help():
@@ -70,7 +102,7 @@ def test_preflight_requires_host():
 @pytest.mark.skipif(not lxd_available(), reason="LXD not available")
 @pytest.mark.skipif(not uv_available(), reason="uv not installed")
 @pytest.mark.skipif(not hosts_available(), reason="Test VMs not running")
-def test_preflight_storage_01():
+def test_preflight_storage_01(integration_env):
     """Test preflight against storage-01 (requires LXD VM to be running)."""
     result = subprocess.run(
         ["uv", "run", "chopsticks", "preflight", "--host", "storage-01"],
@@ -90,7 +122,7 @@ def test_preflight_storage_01():
 @pytest.mark.skipif(not lxd_available(), reason="LXD not available")
 @pytest.mark.skipif(not uv_available(), reason="uv not installed")
 @pytest.mark.skipif(not hosts_available(), reason="Test VMs not running")
-def test_preflight_client_01():
+def test_preflight_client_01(integration_env):
     """Test preflight against client-01 (requires LXD VM to be running)."""
     result = subprocess.run(
         ["uv", "run", "chopsticks", "preflight", "--host", "client-01"],
@@ -109,7 +141,7 @@ def test_preflight_client_01():
 @pytest.mark.skipif(not lxd_available(), reason="LXD not available")
 @pytest.mark.skipif(not uv_available(), reason="uv not installed")
 @pytest.mark.skipif(not hosts_available(), reason="Test VMs not running")
-def test_preflight_multiple_hosts():
+def test_preflight_multiple_hosts(integration_env):
     """Test preflight against multiple hosts."""
     result = subprocess.run(
         ["uv", "run", "chopsticks", "preflight", "--host", "storage-01", "--host", "client-01"],

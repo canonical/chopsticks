@@ -1,14 +1,16 @@
 """Resource availability probe implementations."""
 
+import json
 import subprocess
+from pathlib import Path
 from typing import Any
 
 from chopsticks.utils.report import ProbeResult
 from chopsticks.utils.ssh import RemoteExecutor
 
 
-def check_disk_capacity(host: str, executor: RemoteExecutor | None = None) -> ProbeResult:
-    """Check disk capacity on the target host."""
+def check_root_disk_capacity(host: str, executor: RemoteExecutor | None = None) -> ProbeResult:
+    """Check root filesystem disk capacity on the target host."""
     if executor is None:
         executor = RemoteExecutor(transport="lxd")
     
@@ -40,12 +42,12 @@ def check_disk_capacity(host: str, executor: RemoteExecutor | None = None) -> Pr
                 passed = use_pct < 90
                 
                 if passed:
-                    message = f"Disk usage is acceptable ({use_pct}%)"
+                    message = f"Root disk usage is acceptable ({use_pct}%)"
                 else:
-                    message = f"Disk usage is high ({use_pct}%)"
+                    message = f"Root disk usage is high ({use_pct}%)"
                 
                 return ProbeResult(
-                    probe_name="Disk Capacity",
+                    probe_name="Root Disk Capacity",
                     host=host,
                     passed=passed,
                     message=message,
@@ -53,7 +55,7 @@ def check_disk_capacity(host: str, executor: RemoteExecutor | None = None) -> Pr
                 )
         
         return ProbeResult(
-            probe_name="Disk Capacity",
+            probe_name="Root Disk Capacity",
             host=host,
             passed=False,
             message="Could not parse disk capacity output",
@@ -61,7 +63,7 @@ def check_disk_capacity(host: str, executor: RemoteExecutor | None = None) -> Pr
     
     except subprocess.TimeoutExpired:
         return ProbeResult(
-            probe_name="Disk Capacity",
+            probe_name="Root Disk Capacity",
             host=host,
             passed=False,
             message="Command timed out",
@@ -69,7 +71,7 @@ def check_disk_capacity(host: str, executor: RemoteExecutor | None = None) -> Pr
     
     except subprocess.CalledProcessError as e:
         return ProbeResult(
-            probe_name="Disk Capacity",
+            probe_name="Root Disk Capacity",
             host=host,
             passed=False,
             message=f"Failed to check disk capacity: {e.stderr}",
@@ -77,7 +79,166 @@ def check_disk_capacity(host: str, executor: RemoteExecutor | None = None) -> Pr
     
     except Exception as e:
         return ProbeResult(
-            probe_name="Disk Capacity",
+            probe_name="Root Disk Capacity",
+            host=host,
+            passed=False,
+            message=f"Unexpected error: {str(e)}",
+        )
+
+
+def get_microceph_osd_paths(host: str, executor: RemoteExecutor) -> list[str]:
+    """Get OSD data paths from MicroCeph configuration.
+    
+    Returns a list of OSD data directory paths to check for disk usage.
+    """
+    paths = []
+    
+    try:
+        # Try to get OSD info from ceph osd df
+        result = executor.run(
+            host,
+            ["ceph", "osd", "df", "--format", "json"],
+            timeout=15,
+            check=False,
+        )
+        
+        if result.returncode == 0:
+            try:
+                data = json.loads(result.stdout)
+                # Get number of OSDs from the data
+                osd_count = len(data.get("nodes", []))
+                
+                # Enumerate OSD data directories
+                for osd_id in range(osd_count):
+                    osd_path = f"/var/snap/microceph/common/data/osd/ceph-{osd_id + 1}"
+                    paths.append(osd_path)
+            except (json.JSONDecodeError, KeyError):
+                pass
+        
+        # If we couldn't get paths from ceph, try enumerating the directory
+        if not paths:
+            result = executor.run(
+                host,
+                ["ls", "-1", "/var/snap/microceph/common/data/osd/"],
+                timeout=10,
+                check=False,
+            )
+            
+            if result.returncode == 0:
+                for dirname in result.stdout.strip().split("\n"):
+                    if dirname.startswith("ceph-"):
+                        paths.append(f"/var/snap/microceph/common/data/osd/{dirname}")
+    
+    except Exception:
+        pass
+    
+    return paths
+
+
+def check_osd_disk_capacity(
+    host: str,
+    executor: RemoteExecutor | None = None,
+    custom_paths: list[str] | None = None,
+    threshold: int = 85,
+) -> ProbeResult:
+    """Check disk capacity for MicroCeph OSD data paths.
+    
+    Args:
+        host: Target hostname
+        executor: Remote executor instance
+        custom_paths: Optional list of custom OSD paths to check
+        threshold: Disk usage threshold percentage (default: 85, Ceph nearfull)
+    """
+    if executor is None:
+        executor = RemoteExecutor(transport="lxd")
+    
+    # Get OSD paths
+    if custom_paths:
+        osd_paths = custom_paths
+    else:
+        osd_paths = get_microceph_osd_paths(host, executor)
+    
+    if not osd_paths:
+        return ProbeResult(
+            probe_name="OSD Disk Capacity",
+            host=host,
+            passed=True,
+            message="No MicroCeph OSDs found on this host",
+            details={"osd_count": 0},
+        )
+    
+    try:
+        # Check each OSD path
+        osd_details: dict[str, Any] = {"osds": []}
+        all_passed = True
+        failed_osds = []
+        
+        for osd_path in osd_paths:
+            result = executor.run(
+                host,
+                ["df", "-h", osd_path],
+                timeout=10,
+                check=False,
+            )
+            
+            if result.returncode != 0:
+                # Path doesn't exist or can't be accessed
+                osd_details["osds"].append({
+                    "path": osd_path,
+                    "status": "inaccessible",
+                })
+                all_passed = False
+                failed_osds.append(f"{osd_path} (inaccessible)")
+                continue
+            
+            # Parse df output
+            lines = result.stdout.strip().split("\n")
+            if len(lines) >= 2:
+                fields = lines[1].split()
+                if len(fields) >= 5:
+                    use_pct = int(fields[4].rstrip("%"))
+                    osd_info = {
+                        "path": osd_path,
+                        "filesystem": fields[0],
+                        "size": fields[1],
+                        "used": fields[2],
+                        "available": fields[3],
+                        "use_percent": fields[4],
+                        "status": "ok" if use_pct < threshold else "full",
+                    }
+                    osd_details["osds"].append(osd_info)
+                    
+                    if use_pct >= threshold:
+                        all_passed = False
+                        failed_osds.append(f"{osd_path} ({use_pct}%)")
+        
+        osd_details["osd_count"] = len(osd_paths)
+        osd_details["threshold"] = f"{threshold}%"
+        
+        if all_passed:
+            message = f"All {len(osd_paths)} OSD(s) disk usage below {threshold}%"
+        else:
+            message = f"OSD disk usage threshold exceeded: {', '.join(failed_osds)}"
+        
+        return ProbeResult(
+            probe_name="OSD Disk Capacity",
+            host=host,
+            passed=all_passed,
+            message=message,
+            details=osd_details,
+        )
+    
+    except subprocess.TimeoutExpired:
+        return ProbeResult(
+            probe_name="OSD Disk Capacity",
+            host=host,
+            passed=False,
+            message="Command timed out",
+        )
+    
+    except Exception as e:
+        return ProbeResult(
+            probe_name="OSD Disk Capacity",
             host=host,
             passed=False,
             message=f"Unexpected error: {str(e)}",

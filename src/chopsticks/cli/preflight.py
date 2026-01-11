@@ -9,7 +9,11 @@ from rich.table import Table
 
 from chopsticks.probes.cluster_health import check_microceph_status, check_ceph_status
 from chopsticks.probes.network import check_network_reachability
-from chopsticks.probes.resources import check_disk_capacity, check_host_resources
+from chopsticks.probes.resources import (
+    check_root_disk_capacity,
+    check_osd_disk_capacity,
+    check_host_resources,
+)
 from chopsticks.utils.report import PreflightReport, ProbeResult
 from chopsticks.utils.ssh import RemoteExecutor
 
@@ -41,6 +45,17 @@ console = Console()
     help="Skip detailed 'ceph status' check",
 )
 @click.option(
+    "--osd-path",
+    multiple=True,
+    help="Additional OSD data paths to check (can be specified multiple times)",
+)
+@click.option(
+    "--osd-threshold",
+    type=int,
+    default=85,
+    help="OSD disk usage warning threshold percentage (default: 85, Ceph nearfull)",
+)
+@click.option(
     "--output",
     type=click.Path(),
     help="Write structured report to file (YAML format)",
@@ -50,6 +65,8 @@ def preflight(
     transport: str,
     user: str,
     skip_ceph_status: bool,
+    osd_path: tuple[str, ...],
+    osd_threshold: int,
     output: Optional[str],
 ) -> None:
     """Run pre-flight checks against MicroCeph cluster."""
@@ -79,8 +96,19 @@ def preflight(
         report.add_result(result)
         _display_probe_result(result)
         
-        # Disk capacity
-        result = check_disk_capacity(target_host, executor)
+        # Root filesystem capacity
+        result = check_root_disk_capacity(target_host, executor)
+        report.add_result(result)
+        _display_probe_result(result)
+        
+        # OSD disk capacity
+        custom_paths = list(osd_path) if osd_path else None
+        result = check_osd_disk_capacity(
+            target_host,
+            executor,
+            custom_paths=custom_paths,
+            threshold=osd_threshold,
+        )
         report.add_result(result)
         _display_probe_result(result)
         

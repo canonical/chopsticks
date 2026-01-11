@@ -43,4 +43,6 @@ addopts = "-m 'not integration'"  # Skip integration tests by default
 dev = [
     "pytest>=9.0.2",
     "pytest-mock>=3.15.1",
+    "mypy>=1.11.2",
+    "types-pyyaml>=6.0.12",
 ]

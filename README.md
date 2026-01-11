@@ -26,6 +26,9 @@ uv sync
 
 # Run the CLI
 uv run chopsticks --help
+
+# Note: 'uv run' automatically manages dev dependencies
+# For production deployment, use: uv sync --no-dev
 ```
 
 ## Usage
@@ -59,14 +62,14 @@ The pre-flight command validates:
 ### Running Tests
 
 ```bash
-# Run all unit tests
-uv run pytest tests/unit/ -v
-
-# Run integration tests (requires LXD VMs)
-uv run pytest tests/integration/ -v -m integration
-
-# Run all tests
+# Run all unit tests (uv run auto-installs dev dependencies)
 uv run pytest -v
+
+# Run integration tests explicitly (requires LXD VMs)
+uv run pytest -m integration -v
+
+# Run specific test file
+uv run pytest tests/unit/test_probes.py -v
 ```
 
 ### Code Quality
@@ -75,9 +78,22 @@ uv run pytest -v
 # Type checking
 uv run mypy src/
 
-# Linting
-uv run ruff check src/
+# Linting (using uvx for standalone tools)
+uvx ruff check src/
+
+# Auto-formatting
+uvx ruff format src/
 ```
+
+### Dependency Management
+
+Chopsticks uses uv with dependency groups:
+- **Production**: `uv sync --no-dev` - Minimal install (click, pyyaml, rich only)
+- **Development**: `uv sync` - Includes dev tools (pytest, mypy)
+- **Running commands**: `uv run <cmd>` auto-installs required dependencies
+- **Standalone tools**: `uvx <tool>` runs tools like ruff without adding to project deps
+
+Contributors don't need to manually manage dependency groups - `uv run` handles it automatically.
 
 ## Documentation
 
