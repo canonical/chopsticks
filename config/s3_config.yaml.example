@@ -17,7 +17,10 @@ region: us-east-1
 # Driver to use (currently only s5cmd is supported)
 driver: s5cmd
 
-# Driver-specific configuration
-driver_config:
-  # Path to s5cmd binary (default: s5cmd in PATH)
-  s5cmd_path: s5cmd
+# Driver-specific configuration (optional)
+# s5cmd path is auto-detected:
+# - Snap install: Uses bundled s5cmd automatically
+# - Development: Searches system PATH
+# - Override: Uncomment and set custom path if needed
+# driver_config:
+#   s5cmd_path: /custom/path/to/s5cmd

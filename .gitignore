@@ -64,3 +64,4 @@ Thumbs.db
 # Downloaded binaries
 bin/
 s5cmd
+chopsticks_*.snap

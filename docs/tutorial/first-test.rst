@@ -19,6 +19,16 @@ Running with web UI
 
 Start Chopsticks with the web interface:
 
+**Snap installation:**
+
+.. code-block:: bash
+
+   chopsticks run \
+     --workload-config ~/config/s3_config.yaml \
+     -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py
+
+**Development installation:**
+
 .. code-block:: bash
 
    uv run chopsticks run \
@@ -40,6 +50,20 @@ Running headless mode
 
 For automated testing, use headless mode:
 
+**Snap installation:**
+
+.. code-block:: bash
+
+   chopsticks run \
+     --workload-config ~/config/s3_config.yaml \
+     -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py \
+     --headless \
+     --users 10 \
+     --spawn-rate 2 \
+     --duration 5m
+
+**Development installation:**
+
 .. code-block:: bash
 
    uv run chopsticks run \
@@ -59,12 +83,24 @@ The default object size is 100MB. To test with different sizes, create a scenari
 
 .. code-block:: yaml
 
-   # config/my_scenario.yaml
+   # ~/config/my_scenario.yaml (snap) or config/my_scenario.yaml (dev)
    s3_large_objects:
      object_size_mb: 50
      max_keys_in_memory: 20
 
 Run with the custom configuration:
+
+**Snap installation:**
+
+.. code-block:: bash
+
+   chopsticks run \
+     --workload-config ~/config/s3_config.yaml \
+     --scenario-config ~/config/my_scenario.yaml \
+     -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py \
+     --headless --users 10 --spawn-rate 2 --duration 5m
+
+**Development installation:**
 
 .. code-block:: bash
 

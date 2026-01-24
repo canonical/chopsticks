@@ -1,0 +1,81 @@
+name: chopsticks
+base: core24
+version: '0.1.0'
+summary: Ceph stress testing framework using Locust
+description: |
+  A flexible, extensible stress testing framework for Ceph storage using Locust 
+  to drive parallel workers and simulate real-world traffic patterns.
+
+  Features:
+  - Extensible workload architecture (S3, with RBD support planned)
+  - Multiple client drivers with pluggable system
+  - Scenario-based testing with YAML configuration
+  - Locust-powered distributed load generation
+  - Comprehensive metrics with multiple export formats
+
+title: Chopsticks
+license: GPL-3.0-or-later
+contact: https://github.com/canonical/chopsticks/issues
+issues: https://github.com/canonical/chopsticks/issues
+source-code: https://github.com/canonical/chopsticks
+website: https://canonical-chopsticks.readthedocs-hosted.com
+
+grade: stable
+confinement: strict
+
+apps:
+  chopsticks:
+    command: bin/chopsticks
+    plugs:
+      - network
+      - network-bind
+      - home
+  
+  s5cmd:
+    command: bin/s5cmd
+    plugs:
+      - network
+      - home
+
+parts:
+  chopsticks:
+    plugin: python
+    source: .
+    build-snaps:
+      - astral-uv
+    override-build: |
+      # Use uv from the snap
+      uv sync --frozen
+      uv build --wheel
+      
+      # Install the wheel into the snap
+      pip install --prefix="${CRAFT_PART_INSTALL}/usr" --no-deps dist/*.whl
+      
+      # Move the binary to the expected location
+      mkdir -p "${CRAFT_PART_INSTALL}/bin"
+      mv "${CRAFT_PART_INSTALL}/usr/local/bin/chopsticks" "${CRAFT_PART_INSTALL}/bin/chopsticks"
+      
+    build-packages:
+      - git
+    
+  s5cmd:
+    plugin: nil
+    override-build: |
+      # Download and install s5cmd
+      VERSION="2.3.0"
+      ARCH=$(uname -m)
+      
+      if [ "$ARCH" = "x86_64" ]; then
+        ARCH="64bit"
+      elif [ "$ARCH" = "aarch64" ]; then
+        ARCH="arm64"
+      fi
+      
+      wget -O s5cmd.tar.gz "https://github.com/peak/s5cmd/releases/download/v${VERSION}/s5cmd_${VERSION}_Linux-${ARCH}.tar.gz"
+      tar xzf s5cmd.tar.gz
+      mkdir -p ${CRAFT_PART_INSTALL}/bin
+      cp s5cmd ${CRAFT_PART_INSTALL}/bin/
+      chmod +x ${CRAFT_PART_INSTALL}/bin/s5cmd
+    
+    build-packages:
+      - wget

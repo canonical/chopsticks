@@ -31,14 +31,14 @@ Adjust timeout for slow networks:
    secret_key: YOUR_SECRET_KEY
    bucket: test-bucket
    driver: s5cmd
+   # s5cmd path auto-detected
    driver_config:
-     s5cmd_path: s5cmd
      timeout: 60  # Increase to 60 seconds
 
-Configure s5cmd path
---------------------
+Configure custom s5cmd path (optional)
+---------------------------------------
 
-If s5cmd is not in PATH:
+The s5cmd path is auto-detected. Only set this if you need a custom location:
 
 .. code-block:: yaml
 
@@ -46,6 +46,9 @@ If s5cmd is not in PATH:
    driver_config:
      s5cmd_path: /custom/path/to/s5cmd
      timeout: 30
+
+**Note:** For snap installations, s5cmd is bundled and auto-detected.
+For development installations, it searches your system PATH.
 
 Create a custom S3 driver
 --------------------------

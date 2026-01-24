@@ -32,6 +32,21 @@ chopsticks/
 
 ### Installation
 
+#### Option 1: Snap Package (Recommended)
+
+```bash
+# Build and install the snap
+snapcraft
+sudo snap install chopsticks_*.snap --dangerous --devmode
+
+# Chopsticks is now available as a command
+chopsticks --help
+```
+
+See [snap/README.md](snap/README.md) for more details on snap installation.
+
+#### Option 2: Development Installation
+
 ```bash
 # Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -41,6 +56,8 @@ uv sync
 ```
 
 ### Download s5cmd (S3 driver)
+
+Only needed for development installation:
 
 ```bash
 ./scripts/install_s5cmd.sh
@@ -61,29 +78,36 @@ driver: s5cmd
 
 ### Run a Test
 
+#### Using Snap (Recommended)
+
 ```bash
 # Run with web UI (default: http://localhost:8089)
-uv run chopsticks --workload-config config/s3_config.yaml \
-  -f src/chopsticks/scenarios/s3_large_objects.py
+chopsticks run --workload-config ~/config/s3_config.yaml \
+  -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py
 
 # Run headless mode with 10 users, spawn rate 2/sec, run for 10 minutes
-uv run chopsticks --workload-config config/s3_config.yaml \
-  -f src/chopsticks/scenarios/s3_large_objects.py \
+chopsticks run --workload-config ~/config/s3_config.yaml \
+  -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py \
   --headless --users 10 --spawn-rate 2 --duration 10m
 
 # Run with custom scenario config
-uv run chopsticks --workload-config config/s3_config.yaml \
-  --scenario-config config/my_scenario.yaml \
-  -f src/chopsticks/scenarios/s3_large_objects.py \
+chopsticks run --workload-config ~/config/s3_config.yaml \
+  --scenario-config ~/config/my_scenario.yaml \
+  -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py \
   --headless --users 50 --spawn-rate 5 --duration 5m
 ```
 
-You can also use Locust directly if needed:
+#### Using Development Installation
 
 ```bash
-# Set config path and run with Locust
-S3_CONFIG_PATH=config/s3_config.yaml uv run locust \
+# Run with web UI
+uv run chopsticks run --workload-config config/s3_config.yaml \
   -f src/chopsticks/scenarios/s3_large_objects.py
+
+# Run headless mode
+uv run chopsticks run --workload-config config/s3_config.yaml \
+  -f src/chopsticks/scenarios/s3_large_objects.py \
+  --headless --users 10 --spawn-rate 2 --duration 10m
 ```
 
 ## Metrics Collection
@@ -183,19 +207,29 @@ class MyCustomScenario(S3Workload):
 
 Tests upload and download of large objects (configurable size, default 100MB).
 
+**Snap installation:**
+
 ```bash
 # Default 100MB objects with web UI
-uv run chopsticks --workload-config config/s3_config.yaml \
-  -f src/chopsticks/scenarios/s3_large_objects.py
+chopsticks run --workload-config ~/config/s3_config.yaml \
+  -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py
 
 # Custom object size (50MB) via scenario config
-# Create config/custom_scenario.yaml with:
+# Create ~/config/custom_scenario.yaml with:
 # s3_large_objects:
 #   object_size_mb: 50
 #   max_keys_in_memory: 10
 
-uv run chopsticks --workload-config config/s3_config.yaml \
-  --scenario-config config/custom_scenario.yaml \
+chopsticks run --workload-config ~/config/s3_config.yaml \
+  --scenario-config ~/config/custom_scenario.yaml \
+  -f /snap/chopsticks/current/usr/local/lib/python3.12/dist-packages/chopsticks/scenarios/s3_large_objects.py \
+  --headless --users 10 --spawn-rate 2 --duration 5m
+```
+
+**Development installation:**
+
+```bash
+uv run chopsticks run --workload-config config/s3_config.yaml \
   -f src/chopsticks/scenarios/s3_large_objects.py \
   --headless --users 10 --spawn-rate 2 --duration 5m
 ```
@@ -400,8 +434,7 @@ secret_key: YOUR_SECRET_KEY
 bucket: test-bucket
 region: default
 driver: s5cmd
-driver_config:
-  s5cmd_path: s5cmd
+# s5cmd path is auto-detected (snap or system PATH)
 ```
 
 ## Development

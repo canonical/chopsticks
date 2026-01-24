@@ -67,24 +67,31 @@ Driver configuration
 .. code-block:: yaml
 
    driver: s5cmd
-   driver_config:
-     s5cmd_path: s5cmd
-     timeout: 30
+   # Optional driver configuration
+   # driver_config:
+   #   s5cmd_path: /custom/path/to/s5cmd
+   #   timeout: 30
 
 **Fields:**
 
 .. option:: driver_config
 
-   **Type:** object
+   **Type:** object (optional)
 
-   Driver-specific configuration options.
+   Driver-specific configuration options. Most settings have sensible defaults.
 
 .. option:: driver_config.s5cmd_path
 
    **Type:** string
-   **Default:** ``s5cmd``
+   **Default:** Auto-detected (snap bundle or system PATH)
 
-   Path to s5cmd binary. Use absolute path if not in PATH.
+   Path to s5cmd binary. **Auto-detection priority:**
+   
+   1. Explicit config value (if specified)
+   2. Snap bundle: ``/snap/chopsticks/current/bin/s5cmd`` (if running in snap)
+   3. System PATH: ``s5cmd`` (searches $PATH)
+   
+   Only set this if you need a custom s5cmd location.
 
 .. option:: driver_config.timeout
 
@@ -230,9 +237,7 @@ Example ``config/s3_config_with_metrics.yaml``:
    
    # Driver configuration
    driver: s5cmd
-   driver_config:
-     s5cmd_path: s5cmd
-     timeout: 30
+   # s5cmd path is auto-detected (snap bundle or system PATH)
    
    # Metrics configuration
    metrics:
